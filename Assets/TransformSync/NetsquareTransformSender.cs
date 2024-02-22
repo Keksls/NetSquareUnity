@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace NetSquare.Client
 {
-    public class NetsquareTransformSender
+    public struct NetsquareTransformSender
     {
         public float NetworkSendRate { get; set; }
         public float TransformFramesStoreRate { get; set; }
@@ -17,18 +17,6 @@ namespace NetSquare.Client
         private Quaternion lastFrameRotation;
         private float networkSendTime;
         private float transformFramesStoreTime;
-        private WorldsManager _customworldsManager;
-        public WorldsManager WorldsManager
-        {
-            get
-            {
-                return _customworldsManager == null ? NSClient.Client.WorldsManager : _customworldsManager;
-            }
-            set
-            {
-                _customworldsManager = value;
-            }
-        }
 
         /// <summary>
         /// Create a new NetsquareTransformSender with the given send rate and frame store rate
@@ -41,6 +29,15 @@ namespace NetSquare.Client
             NetworkSendRate = sendRate;
             TransformFramesStoreRate = frameStoreRate;
             TransformFramesStoreRateFast = frameStoreRateFast;
+            lastFrameIsWalking = false;
+            lastFrameIsJumping = false;
+            lastFrameIsFalling = false;
+            lastFrameIsSprinting = false;
+            lastFramePosition = Vector3.zero;
+            lastFrameRotation = Quaternion.identity;
+            networkSendTime = 0;
+            transformFramesStoreTime = 0;
+            lastFramePosition = Vector3.zero;
         }
 
         /// <summary>
@@ -48,22 +45,23 @@ namespace NetSquare.Client
         /// </summary>
         /// <param name="worldID"> The world ID </param>
         /// <param name="playerTransform"> The player transform </param>
-        public void JoinWorld(ushort worldID, Transform playerTransform)
+        public void JoinWorld(NetSquare_Client client, ushort worldID, Transform playerTransform)
         {
             // check if the client is connected and time is synchronized
-            if (NSClient.Client == null || !NSClient.Client.IsConnected)
+            if (client == null || !client.IsConnected)
             {
+                Debug.LogError("Client is not connected");
                 return;
             }
 
             // join the world
-            WorldsManager.AutoSendFrames = false;
-            WorldsManager.TryJoinWorld(worldID, GetNSTransform(playerTransform, 0), (success) =>
+            client.WorldsManager.AutoSendFrames = false;
+            client.WorldsManager.TryJoinWorld(worldID, GetNSTransform(playerTransform, 0), (success) =>
             {
                 if (success)
-                    Debug.Log("Player is in world");
+                    Debug.Log("Player " + client.ClientID + " is now in world " + worldID);
                 else
-                    Debug.LogError("Player is not in world");
+                    Debug.LogError("Player " + client.ClientID + " cannot enter world " + worldID);
             });
         }
 
@@ -72,10 +70,10 @@ namespace NetSquare.Client
         /// </summary>
         /// <param name="states"> The player states </param>
         /// <param name="playerTransform"> The player transform </param>
-        public void Update(PlayerStates states, Transform playerTransform)
+        public void Update(NetSquare_Client client, PlayerStates states, Transform playerTransform)
         {
             // check if the client is connected and time is synchronized
-            if (NSClient.Client == null || !NSClient.Client.IsConnected || !NSClient.Client.IsTimeSynchonized)
+            if (client == null || !client.IsConnected || !NSClient.Client.IsTimeSynchonized)
             {
                 return;
             }
@@ -83,22 +81,22 @@ namespace NetSquare.Client
             // Send walking state
             if (states.IsWalking != lastFrameIsWalking)
             {
-                StoreTransformFrame(playerTransform, states, states.IsWalking ? TransformState.Walk_True : TransformState.Walk_False);
+                StoreTransformFrame(client, playerTransform, states, states.IsWalking ? TransformState.Walk_True : TransformState.Walk_False);
             }
             // Send jumping state
             if (states.IsJumping != lastFrameIsJumping)
             {
-                StoreTransformFrame(playerTransform, states, states.IsJumping ? TransformState.Jump_True : TransformState.Jump_False);
+                StoreTransformFrame(client, playerTransform, states, states.IsJumping ? TransformState.Jump_True : TransformState.Jump_False);
             }
             // Send falling state
             if (states.IsFalling != lastFrameIsFalling)
             {
-                StoreTransformFrame(playerTransform, states, states.IsFalling ? TransformState.Fall_True : TransformState.Fall_False);
+                StoreTransformFrame(client, playerTransform, states, states.IsFalling ? TransformState.Fall_True : TransformState.Fall_False);
             }
             // Send sprinting state
             if (states.IsSprinting != lastFrameIsSprinting)
             {
-                StoreTransformFrame(playerTransform, states, states.IsSprinting ? TransformState.Sprint_True : TransformState.Sprint_False);
+                StoreTransformFrame(client, playerTransform, states, states.IsSprinting ? TransformState.Sprint_True : TransformState.Sprint_False);
             }
 
             // store the last frame states
@@ -108,7 +106,7 @@ namespace NetSquare.Client
             lastFrameIsSprinting = states.IsSprinting;
 
             // send the player state to the server
-            SendNetworkState(states, playerTransform);
+            SendNetworkState(client, states, playerTransform);
         }
 
         /// <summary>
@@ -116,14 +114,14 @@ namespace NetSquare.Client
         /// </summary>
         /// <param name="states"> The player states </param>
         /// <param name="playerTransform"> The player transform </param>
-        public void SendNetworkState(PlayerStates states, Transform playerTransform)
+        public void SendNetworkState(NetSquare_Client client, PlayerStates states, Transform playerTransform)
         {
             // handle transform frames store rate
             if (Time.time > transformFramesStoreTime)
             {
                 if (lastFramePosition != playerTransform.position || lastFrameRotation != playerTransform.rotation || states.IsJumping || states.IsFalling)
                 {
-                    StoreTransformFrame(playerTransform, states, TransformState.None);
+                    StoreTransformFrame(client, playerTransform, states, TransformState.None);
                     lastFramePosition = playerTransform.position;
                     lastFrameRotation = playerTransform.rotation;
                 }
@@ -133,7 +131,7 @@ namespace NetSquare.Client
             if (Time.time > networkSendTime)
             {
                 networkSendTime = Time.time + NetworkSendRate;
-                WorldsManager.SendFrames();
+                client.WorldsManager.SendFrames();
             }
         }
 
@@ -143,9 +141,9 @@ namespace NetSquare.Client
         /// <param name="playerTransform"> The player transform </param>
         /// <param name="states"> The player states </param>
         /// <param name="state"> The transform state </param>
-        public void StoreTransformFrame(Transform playerTransform, PlayerStates states, TransformState state)
+        public void StoreTransformFrame(NetSquare_Client client, Transform playerTransform, PlayerStates states, TransformState state)
         {
-            WorldsManager.StoreTransformFrame(GetNSTransform(playerTransform, (byte)state));
+            client.WorldsManager.StoreTransformFrame(GetNSTransform(playerTransform, (byte)state));
             transformFramesStoreTime = Time.time + (states.IsJumping ? TransformFramesStoreRateFast : TransformFramesStoreRate);
         }
 
@@ -160,7 +158,7 @@ namespace NetSquare.Client
             return new NetsquareTransformFrame(
                 playerTransform.position.x, playerTransform.position.y, playerTransform.position.z,
                 playerTransform.rotation.x, playerTransform.rotation.y, playerTransform.rotation.z, playerTransform.rotation.w,
-                state, NSClient.Client.Time);
+                state, NSClient.ServerTime);
         }
     }
 }

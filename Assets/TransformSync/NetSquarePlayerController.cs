@@ -1,5 +1,5 @@
+using NetSquareClient;
 using System.Collections;
-using System.Threading;
 using UnityEngine;
 
 namespace NetSquare.Client
@@ -64,15 +64,10 @@ namespace NetSquare.Client
 
         private void NSClient_OnConnected(uint obj)
         {
-            Thread t = new Thread(() =>
-            {
-                NSClient.Client.SyncTime(5);
-            });
-            t.Start();
             // Create a new transform sender
             TransformSender = new NetsquareTransformSender(NetworkSendRate, TransformFramesStoreRate, TransformFramesStoreRateFast);
             // Join a world
-            TransformSender.JoinWorld(1, transform);
+            TransformSender.JoinWorld(NSClient.Client, 1, transform);
         }
 
         void Update()
@@ -103,7 +98,7 @@ namespace NetSquare.Client
                 Rotate(Input.GetAxis("Mouse X"));
                 Jump(Input.GetKeyDown(KeyCode.Space));
                 UpdatePlayer();
-                Sync();
+                Sync(NSClient.Client);
             }
         }
 
@@ -147,7 +142,7 @@ namespace NetSquare.Client
             States.IsGrounded = Physics.CheckSphere(GroundCheck.position, GroundCheckRadius, GroundLayer);
 
             // Update the animator
-            if (PlayerAnimator != null)
+            if (PlayerAnimator != null && IsLocalPlayer)
             {
                 PlayerAnimator.SetBool("IsFalling", States.IsFalling);
                 PlayerAnimator.SetBool("IsJumping", States.IsJumping);
@@ -245,10 +240,10 @@ namespace NetSquare.Client
         /// <summary>
         /// Sync the player state to the server
         /// </summary>
-        public void Sync()
+        public void Sync(NetSquare_Client client)
         {
             // Send the player state to the server
-            TransformSender?.Update(States, transform);
+            TransformSender.Update(client, States, transform);
         }
 
         /// <summary>
@@ -289,7 +284,7 @@ namespace NetSquare.Client
             GUI.Label(new Rect(10, 50, 200, 20), "States.IsFalling: " + States.IsFalling);
             GUI.Label(new Rect(10, 70, 200, 20), "States.IsWalking: " + States.IsWalking);
             // Display client time
-            GUI.Label(new Rect(10, 90, 200, 20), "Client Time: " + NSClient.Client.Time);
+            GUI.Label(new Rect(10, 90, 200, 20), "Client Time: " + NSClient.ServerTime);
         }
     }
 }

@@ -69,7 +69,44 @@ namespace NetSquare.Client
             {
                 player.Value.UpdateTransform(interpolationTimeOffset);
             }
+        }
 
+        private void OnGUI()
+        {
+            // Display the number of players at top right corner
+            GUI.Label(new Rect(Screen.width - 100, 0, 100, 100), "Players: " + players.Count);
+            // Display the min Time value of each transform frame of any players
+            if (players.Count > 0)
+            {
+                float minTime = float.MaxValue;
+                foreach (var player in players)
+                {
+                    if (player.Value.TransformFrames.Count > 0)
+                    {
+                        if (player.Value.TransformFrames[0].Time < minTime)
+                        {
+                            minTime = player.Value.TransformFrames[0].Time;
+                        }
+                    }
+                }
+                GUI.Label(new Rect(Screen.width - 100, 20, 100, 100), "Min Time: " + minTime);
+            }
+            // Display the max Time value of each transform frame of any players
+            if (players.Count > 0)
+            {
+                float maxTime = float.MinValue;
+                foreach (var player in players)
+                {
+                    if (player.Value.TransformFrames.Count > 0)
+                    {
+                        if (player.Value.TransformFrames[0].Time > maxTime)
+                        {
+                            maxTime = player.Value.TransformFrames[0].Time;
+                        }
+                    }
+                }
+                GUI.Label(new Rect(Screen.width - 100, 40, 100, 100), "Max Time: " + maxTime);
+            }
         }
     }
 
@@ -77,7 +114,7 @@ namespace NetSquare.Client
     {
         public uint ClientID;
         public NetsquareOtherPlayerController Player;
-        private List<NetsquareTransformFrame> transformFrames = new List<NetsquareTransformFrame>();
+        public List<NetsquareTransformFrame> TransformFrames = new List<NetsquareTransformFrame>();
         private bool playerStateSet = false;
 
         public NetworkPlayerData(uint clientID, NetsquareOtherPlayerController player)
@@ -88,13 +125,13 @@ namespace NetSquare.Client
 
         public void AddTransformFrame(NetsquareTransformFrame transformFrame)
         {
-            transformFrames.Add(transformFrame);
+            TransformFrames.Add(transformFrame);
         }
 
         public void UpdateTransform(float interpolationTimeOffset)
         {
             // If we don't have enough frames, we can't interpolate
-            if (transformFrames.Count < 2)
+            if (TransformFrames.Count < 2)
             {
                 return;
             }
@@ -103,38 +140,35 @@ namespace NetSquare.Client
             if (!playerStateSet)
             {
                 playerStateSet = true;
-                Player.SetState((TransformState)transformFrames[0].State);
-
-                if ((TransformState)transformFrames[0].State != TransformState.None)
-                    Debug.Log(" < " + ((TransformState)transformFrames[0].State).ToString());
+                Player.SetState((TransformState)TransformFrames[0].State);
             }
 
             // Get the current lerp time
-            float currentLerpTime = NSClient.Client.Time - interpolationTimeOffset;
+            float currentLerpTime = NSClient.ServerTime - interpolationTimeOffset;
 
             // Lerp the transform
-            if (currentLerpTime < transformFrames[1].Time)
+            if (currentLerpTime < TransformFrames[1].Time)
             {
                 // Increment the lerp time
                 currentLerpTime += Time.deltaTime;
-                float lerpT = (currentLerpTime - transformFrames[0].Time) / (transformFrames[1].Time - transformFrames[0].Time);
+                float lerpT = (currentLerpTime - TransformFrames[0].Time) / (TransformFrames[1].Time - TransformFrames[0].Time);
 
                 // Lerp position
-                Vector3 fromPosition = new Vector3(transformFrames[0].x, transformFrames[0].y, transformFrames[0].z);
-                Vector3 toPosition = new Vector3(transformFrames[1].x, transformFrames[1].y, transformFrames[1].z);
+                Vector3 fromPosition = new Vector3(TransformFrames[0].x, TransformFrames[0].y, TransformFrames[0].z);
+                Vector3 toPosition = new Vector3(TransformFrames[1].x, TransformFrames[1].y, TransformFrames[1].z);
                 Vector3 position = Vector3.Lerp(fromPosition, toPosition, lerpT);
                 // Lerp rotation
-                Quaternion fromRotation = new Quaternion(transformFrames[0].rx, transformFrames[0].ry, transformFrames[0].rz, transformFrames[0].rw);
-                Quaternion toRotation = new Quaternion(transformFrames[1].rx, transformFrames[1].ry, transformFrames[1].rz, transformFrames[1].rw);
+                Quaternion fromRotation = new Quaternion(TransformFrames[0].rx, TransformFrames[0].ry, TransformFrames[0].rz, TransformFrames[0].rw);
+                Quaternion toRotation = new Quaternion(TransformFrames[1].rx, TransformFrames[1].ry, TransformFrames[1].rz, TransformFrames[1].rw);
                 Quaternion rotation = Quaternion.Lerp(fromRotation, toRotation, lerpT);
 
                 Player.SetTransform(position, rotation);
             }
 
             // check if we need to get new frames
-            if (currentLerpTime >= transformFrames[1].Time)
+            if (currentLerpTime >= TransformFrames[1].Time)
             {
-                transformFrames.RemoveAt(0);
+                TransformFrames.RemoveAt(0);
                 playerStateSet = false;
             }
         }

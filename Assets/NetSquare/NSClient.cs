@@ -38,6 +38,28 @@ public static class NSClient
     /// </summary>
     public static NetSquare_Client Client { get; set; }
     /// <summary>
+    /// The current local time of the client
+    /// </summary>
+    public static float ClientTime { get; set; }
+    /// <summary>
+    /// The current server time
+    /// </summary>
+    public static float ServerTime
+    {
+        get
+        {
+            return ClientTime + serverTimeOffset;
+        }
+        set
+        {
+            serverTimeOffset = value - ClientTime;
+        }
+    }
+    /// <summary>
+    /// Time offset between client and server
+    /// </summary>
+    private static float serverTimeOffset = 0f;
+    /// <summary>
     /// Is the client in debug mode
     /// </summary>
     private static bool debug;
@@ -81,7 +103,7 @@ public static class NSClient
     {
         NetworkMessage message = new NetworkMessage();
         message.SetData(data);
-        Debug.Log("=> " + message.HeadID + " | " + message.TypeID + " | " + message.Data.Length);
+        Debug.Log("=> " + message.HeadID + " | " + (MessageType)message.MsgType + " | " + message.Data.Length + (message.MsgType == (byte)MessageType.Reply ? " | " + message.ReplyID : ""));
     }
 
     /// <summary>
@@ -90,7 +112,7 @@ public static class NSClient
     /// <param name="message">The message received</param>
     private static void Client_OnMessageReceived(NetworkMessage message)
     {
-        Debug.Log("<= " + message.HeadID + " | " + message.TypeID + " | " + message.Length);
+        Debug.Log("<= " + message.HeadID + " | " + (MessageType)message.MsgType + " | " + message.Length + (message.MsgType == (byte)MessageType.Reply ? " | " + message.ReplyID : ""));
     }
 
     /// <summary>
@@ -148,6 +170,7 @@ public static class NSClient
                 Client.Client.OnMessageSend += Client_OnMessageSend;
                 Client.Client.OnException += Client_OnException;
             }
+            Client.SyncTime(10, 1000,(time) => { ServerTime = time; });
             OnConnected?.Invoke(clientID);
             IsConnected = true;
         }, null);

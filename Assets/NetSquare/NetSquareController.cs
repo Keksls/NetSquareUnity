@@ -1,6 +1,7 @@
 using NetSquare.Core;
 using NetSquare.Core.Compression;
 using NetSquare.Core.Encryption;
+using System;
 using System.Collections.Concurrent;
 using UnityEngine;
 
@@ -21,6 +22,7 @@ namespace NetSquare.Client
         public eCompression MessagesCompression;
         public eEncryption MessagesEncryption;
         public bool DebugMode = true;
+        private double timeOffset = 0f;
 
         /// <summary>
         /// Singleton to reach the client anywhere.
@@ -39,13 +41,15 @@ namespace NetSquare.Client
 
             NSClient.Client.Dispatcher.SetMainThreadCallback(ExecuteInMainThread);
             NSClient.Client.OnException += Client_OnException;
+
+            timeOffset = new TimeSpan(DateTime.UtcNow.Ticks).TotalSeconds - Time.time;
         }
 
         /// <summary>
         /// Event raised when client throw an exception
         /// </summary>
         /// <param name="ex">The exception raised</param>
-        private void Client_OnException(System.Exception ex)
+        private void Client_OnException(Exception ex)
         {
             Debug.LogError("NetSquare reception exception : \n" + ex.ToString());
         }
@@ -85,6 +89,7 @@ namespace NetSquare.Client
         /// </summary>
         private void Update()
         {
+            NSClient.ClientTime = (float)(new TimeSpan(DateTime.UtcNow.Ticks).TotalSeconds - timeOffset);
             short i = 0;
             while (netSquareActions.Count > 0 && i <= NbMaxMessagesByFrame)
             {
@@ -111,20 +116,20 @@ namespace NetSquare.Client
         {
             NSClient.Client?.Disconnect();
         }
+    }
 
-        /// <summary>
-        /// Internal scruct to store NetSquareActions and related NetworkMessages
-        /// </summary>
-        internal struct NetSquareActionData
+    /// <summary>
+    /// Internal scruct to store NetSquareActions and related NetworkMessages
+    /// </summary>
+    public struct NetSquareActionData
+    {
+        public NetSquareAction Action;
+        public NetworkMessage Message;
+
+        public NetSquareActionData(NetSquareAction action, NetworkMessage message)
         {
-            public NetSquareAction Action;
-            public NetworkMessage Message;
-
-            public NetSquareActionData(NetSquareAction action, NetworkMessage message)
-            {
-                Action = action;
-                Message = message;
-            }
+            Action = action;
+            Message = message;
         }
     }
 }
