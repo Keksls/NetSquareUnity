@@ -434,6 +434,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: BotsSpawner
       objectReference: {fileID: 0}
+    - target: {fileID: 3048006774448708954, guid: cee80b8410ab5d34e89030b2f4a9c9ce, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6556224019794905452, guid: cee80b8410ab5d34e89030b2f4a9c9ce, type: 3}
       propertyPath: m_LocalPosition.x
       value: 200

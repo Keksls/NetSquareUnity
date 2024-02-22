@@ -51,6 +51,7 @@ namespace NetSquare.Client
             if (players.ContainsKey(clientID))
             {
                 Destroy(players[clientID].Player);
+                Destroy(players[clientID].Player.gameObject);
                 players.Remove(clientID);
             }
         }
