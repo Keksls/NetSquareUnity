@@ -77,6 +77,10 @@ namespace NetSquare.Client
 
         private void WorldsManager_OnClientJoinWorld(NetworkMessage obj)
         {
+            if(players.ContainsKey(obj.ClientID))
+            {
+                return;
+            }
             // Create a new player
             GameObject player = Instantiate(PlayerPrefab);
             players.Add(obj.ClientID, new NetworkPlayerData(obj.ClientID, player.GetComponent<NetsquareOtherPlayerController>()));
