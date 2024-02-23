@@ -1,4 +1,5 @@
 using NetSquare.Core;
+using NetSquareClient;
 using NetSquareCore;
 using System.Collections.Generic;
 using UnityEngine;
@@ -10,7 +11,11 @@ namespace NetSquare.Client
         public GameObject PlayerPrefab;
         [SerializeField]
         private float interpolationTimeOffset = 1f;
+        [SerializeField]
+        private bool monitorClientStatistics = false;
         private Dictionary<uint, NetworkPlayerData> players = new Dictionary<uint, NetworkPlayerData>();
+        private ClientStatisticsManager clientStatisticsManager;
+        private ClientStatistics currentClientStatistics;
 
         #region Events Registration
         private void Awake()
@@ -24,6 +29,20 @@ namespace NetSquare.Client
             NSClient.Client.WorldsManager.OnClientJoinWorld += WorldsManager_OnClientJoinWorld;
             NSClient.Client.WorldsManager.OnClientLeaveWorld += WorldsManager_OnClientLeaveWorld;
             NSClient.Client.WorldsManager.OnClientMove += WorldsManager_OnClientMove;
+
+            if(monitorClientStatistics)
+            {
+                clientStatisticsManager = new ClientStatisticsManager();
+                clientStatisticsManager.IntervalMs = 1000;
+                clientStatisticsManager.AddClient(NSClient.Client);
+                clientStatisticsManager.OnGetStatistics += ClientStatisticsManager_OnGetStatistics;
+                clientStatisticsManager.Start();
+            }
+        }
+
+        private void ClientStatisticsManager_OnGetStatistics(ClientStatistics clientStatistics)
+        {
+            currentClientStatistics = clientStatistics;
         }
 
         private void NSClient_OnDisconnected()
@@ -72,14 +91,16 @@ namespace NetSquare.Client
             }
         }
 
+        float minTime = float.MaxValue;
+        float maxTime = float.MinValue;
         private void OnGUI()
         {
             // Display the number of players at top right corner
-            GUI.Label(new Rect(Screen.width - 100, 0, 100, 100), "Players: " + players.Count);
+            GUI.Label(new Rect(Screen.width - 200, 0, 200, 100), "Players: " + players.Count);
             // Display the min Time value of each transform frame of any players
             if (players.Count > 0)
             {
-                float minTime = float.MaxValue;
+                minTime = float.MaxValue;
                 foreach (var player in players)
                 {
                     if (player.Value.TransformFrames.Count > 0)
@@ -90,12 +111,12 @@ namespace NetSquare.Client
                         }
                     }
                 }
-                GUI.Label(new Rect(Screen.width - 100, 20, 100, 100), "Min Time: " + minTime);
+                GUI.Label(new Rect(Screen.width - 200, 20, 200, 100), "Min Time: " + minTime);
             }
             // Display the max Time value of each transform frame of any players
             if (players.Count > 0)
             {
-                float maxTime = float.MinValue;
+                maxTime = float.MinValue;
                 foreach (var player in players)
                 {
                     if (player.Value.TransformFrames.Count > 0)
@@ -106,7 +127,22 @@ namespace NetSquare.Client
                         }
                     }
                 }
-                GUI.Label(new Rect(Screen.width - 100, 40, 100, 100), "Max Time: " + maxTime);
+                GUI.Label(new Rect(Screen.width - 200, 40, 200, 100), "Max Time: " + maxTime);
+            }
+
+            // display statistics on top center of the screen
+            if (monitorClientStatistics)
+            {
+                // display nb messages processing
+                GUI.Label(new Rect(Screen.width / 2 - 100, 0, 200, 100), "Nb Messages Processing: " + currentClientStatistics.NbProcessingMessages);
+                // display nb messages received
+                GUI.Label(new Rect(Screen.width / 2 - 100, 20, 200, 100), "Nb Messages Received: " + currentClientStatistics.NbMessagesReceiving);
+                // display nb messages sent
+                GUI.Label(new Rect(Screen.width / 2 - 100, 40, 200, 100), "Nb Messages Sent: " + currentClientStatistics.NbMessagesSending);
+                // display download speed
+                GUI.Label(new Rect(Screen.width / 2 - 100, 60, 200, 100), "Download Speed: " + currentClientStatistics.Downloading + " ko/s");
+                // display upload speed
+                GUI.Label(new Rect(Screen.width / 2 - 100, 80, 200, 100), "Upload Speed: " + currentClientStatistics.Uploading + " ko/s");
             }
         }
     }

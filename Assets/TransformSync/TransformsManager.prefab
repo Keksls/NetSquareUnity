@@ -46,3 +46,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   PlayerPrefab: {fileID: 123723312669904207, guid: 19138d92b8b67c64c9b37b0d55497f8c, type: 3}
   interpolationTimeOffset: 1
+  monitorClientStatistics: 1
