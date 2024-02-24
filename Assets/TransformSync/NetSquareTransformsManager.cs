@@ -13,6 +13,22 @@ namespace NetSquare.Client
         private float interpolationTimeOffset = 1f;
         [SerializeField]
         private bool monitorClientStatistics = false;
+        [Header("Adaptative interpolation")]
+        [SerializeField]
+        private bool adaptativeInterpolation = false;
+        [SerializeField]
+        private float maxInterpolationTimeOffset = 1f;
+        [SerializeField]
+        private float minInterpolationTimeOffset = 0.1f;
+        [SerializeField]
+        private float adaptativeInterpolationMinimumOffset = 0.1f;
+        [SerializeField]
+        private int maxInterpolationTimesCount = 10;
+        [SerializeField]
+        private float adaptativeInterpolationUpdateInterval = 0.2f;
+        private float lastAdaptativeInterpolationUpdateTime;
+        private List<float> lastMaxInterpolationTimes;
+
         private Dictionary<uint, NetworkPlayerData> players = new Dictionary<uint, NetworkPlayerData>();
         private ClientStatisticsManager clientStatisticsManager;
         private ClientStatistics currentClientStatistics;
@@ -30,7 +46,7 @@ namespace NetSquare.Client
             NSClient.Client.WorldsManager.OnClientLeaveWorld += WorldsManager_OnClientLeaveWorld;
             NSClient.Client.WorldsManager.OnClientMove += WorldsManager_OnClientMove;
 
-            if(monitorClientStatistics)
+            if (monitorClientStatistics)
             {
                 clientStatisticsManager = new ClientStatisticsManager();
                 clientStatisticsManager.IntervalMs = 1000;
@@ -77,7 +93,7 @@ namespace NetSquare.Client
 
         private void WorldsManager_OnClientJoinWorld(NetworkMessage obj)
         {
-            if(players.ContainsKey(obj.ClientID))
+            if (players.ContainsKey(obj.ClientID))
             {
                 return;
             }
@@ -89,10 +105,76 @@ namespace NetSquare.Client
 
         private void Update()
         {
+            AdaptativeInterpotationUpdate();
             foreach (var player in players)
             {
                 player.Value.UpdateTransform(interpolationTimeOffset);
             }
+        }
+
+        private void AdaptativeInterpotationUpdate()
+        {
+            // check if we need to update the interpolation time offset
+            if (!adaptativeInterpolation)
+            {
+                return;
+            }
+
+            // check if we need to update the interpolation time offset
+            if (Time.time - lastAdaptativeInterpolationUpdateTime < adaptativeInterpolationUpdateInterval)
+            {
+                return;
+            }
+
+            // handle lastmaxInterpolationTimes initialization
+            if (lastMaxInterpolationTimes == null)
+            {
+                lastMaxInterpolationTimes = new List<float>(maxInterpolationTimesCount);
+            }
+            // handle resize of lastMaxInterpolationTimes
+            if (lastMaxInterpolationTimes.Capacity != maxInterpolationTimesCount)
+            {
+                lastMaxInterpolationTimes.Clear();
+            }
+
+            // get the max interpolation time on current players
+            float currentMaxInterpolationTime = float.MinValue;
+            foreach (var player in players)
+            {
+                if (player.Value.TransformFrames.Count > 0)
+                {
+                    if (player.Value.TransformFrames[0].Time > currentMaxInterpolationTime)
+                    {
+                        currentMaxInterpolationTime = player.Value.TransformFrames[0].Time;
+                    }
+                }
+            }
+            currentMaxInterpolationTime = NSClient.ServerTime - currentMaxInterpolationTime;
+
+            // update the interpolation time offset
+            if (lastMaxInterpolationTimes.Count >= maxInterpolationTimesCount)
+            {
+                lastMaxInterpolationTimes.RemoveAt(0);
+            }
+            lastMaxInterpolationTimes.Add(currentMaxInterpolationTime);
+
+            // handle average only if the list is full
+            if (lastMaxInterpolationTimes.Count >= maxInterpolationTimesCount)
+            {
+                // get the average of the last max interpolation times
+                float sum = 0;
+                foreach (float time in lastMaxInterpolationTimes)
+                {
+                    sum += time;
+                }
+                float targetInterpolationTime = sum / lastMaxInterpolationTimes.Count;
+
+                // update the interpolation time offset
+                interpolationTimeOffset = Mathf.Clamp(targetInterpolationTime, minInterpolationTimeOffset, maxInterpolationTimeOffset) + adaptativeInterpolationMinimumOffset;
+            }
+
+            // update the last adaptative interpolation update time
+            lastAdaptativeInterpolationUpdateTime = Time.time;
         }
 
         float minTime = float.MaxValue;
@@ -147,6 +229,8 @@ namespace NetSquare.Client
                 GUI.Label(new Rect(Screen.width / 2 - 100, 60, 200, 100), "Download Speed: " + currentClientStatistics.Downloading + " ko/s");
                 // display upload speed
                 GUI.Label(new Rect(Screen.width / 2 - 100, 80, 200, 100), "Upload Speed: " + currentClientStatistics.Uploading + " ko/s");
+                // display adaptatie interpolation time offset
+                GUI.Label(new Rect(Screen.width / 2 - 100, 100, 200, 100), "Interpolation Time Offset: " + interpolationTimeOffset);
             }
         }
     }
