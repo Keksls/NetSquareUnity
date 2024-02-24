@@ -41,8 +41,8 @@ namespace NetSquare.Client
         public AnimationCurve JumpCurve;
         [Header("Network")]
         public float NetworkSendRate = 0.5f;
-        public float TransformFramesStoreRate = 0.5f;
-        public float TransformFramesStoreRateFast = 0.2f;
+        public float TransformFramesStoreRate = 0.2f;
+        public float TransformFramesStoreRateFast = 0.1f;
         public NetsquareTransformSender TransformSender;
         #endregion
 
@@ -64,8 +64,7 @@ namespace NetSquare.Client
 
         private void NSClient_OnConnected(uint obj)
         {
-            // Create a new transform sender
-            TransformSender = new NetsquareTransformSender(NetworkSendRate, TransformFramesStoreRate, TransformFramesStoreRateFast);
+            InitializeTransformSender();
             // Join a world
             TransformSender.JoinWorld(NSClient.Client, 1, transform);
         }
@@ -100,6 +99,15 @@ namespace NetSquare.Client
                 UpdatePlayer();
                 Sync(NSClient.Client);
             }
+        }
+
+        /// <summary>
+        /// Initialize the transform sender using the given parameters
+        /// </summary>
+        public void InitializeTransformSender()
+        {
+            // Create a new transform sender
+            TransformSender = new NetsquareTransformSender(NetworkSendRate, TransformFramesStoreRate, TransformFramesStoreRateFast);
         }
 
         /// <summary>

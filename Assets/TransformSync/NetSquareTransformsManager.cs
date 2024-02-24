@@ -8,14 +8,13 @@ namespace NetSquare.Client
 {
     public class NetSquareTransformsManager : MonoBehaviour
     {
+        public static NetSquareTransformsManager Instance;
         public GameObject PlayerPrefab;
-        [SerializeField]
-        private float interpolationTimeOffset = 1f;
+        public float InterpolationTimeOffset = 1f;
         [SerializeField]
         private bool monitorClientStatistics = false;
         [Header("Adaptative interpolation")]
-        [SerializeField]
-        private bool adaptativeInterpolation = false;
+        public bool AdaptativeInterpolation = false;
         [SerializeField]
         private float maxInterpolationTimeOffset = 1f;
         [SerializeField]
@@ -33,13 +32,21 @@ namespace NetSquare.Client
         private ClientStatisticsManager clientStatisticsManager;
         private ClientStatistics currentClientStatistics;
 
-        #region Events Registration
         private void Awake()
         {
+            if (Instance == null)
+            {
+                Instance = this;
+                DontDestroyOnLoad(this);
+            }
+            else
+                Destroy(gameObject);
+
             NSClient.OnConnected += NSClient_OnConnected;
             NSClient.OnDisconnected += NSClient_OnDisconnected;
         }
 
+        #region Events Registration
         private void NSClient_OnConnected(uint obj)
         {
             NSClient.Client.WorldsManager.OnClientJoinWorld += WorldsManager_OnClientJoinWorld;
@@ -108,14 +115,14 @@ namespace NetSquare.Client
             AdaptativeInterpotationUpdate();
             foreach (var player in players)
             {
-                player.Value.UpdateTransform(interpolationTimeOffset);
+                player.Value.UpdateTransform(InterpolationTimeOffset);
             }
         }
 
         private void AdaptativeInterpotationUpdate()
         {
             // check if we need to update the interpolation time offset
-            if (!adaptativeInterpolation)
+            if (!AdaptativeInterpolation)
             {
                 return;
             }
@@ -143,9 +150,18 @@ namespace NetSquare.Client
             {
                 if (player.Value.TransformFrames.Count > 0)
                 {
-                    if (player.Value.TransformFrames[0].Time > currentMaxInterpolationTime)
+                    float mostRecentFrameTimeForClient = player.Value.TransformFrames[0].Time;
+                    foreach (var frame in player.Value.TransformFrames)
                     {
-                        currentMaxInterpolationTime = player.Value.TransformFrames[0].Time;
+                        if (frame.Time > mostRecentFrameTimeForClient)
+                        {
+                            mostRecentFrameTimeForClient = frame.Time;
+                        }
+                    }
+
+                    if (mostRecentFrameTimeForClient > currentMaxInterpolationTime)
+                    {
+                        currentMaxInterpolationTime = mostRecentFrameTimeForClient;
                     }
                 }
             }
@@ -170,7 +186,7 @@ namespace NetSquare.Client
                 float targetInterpolationTime = sum / lastMaxInterpolationTimes.Count;
 
                 // update the interpolation time offset
-                interpolationTimeOffset = Mathf.Clamp(targetInterpolationTime, minInterpolationTimeOffset, maxInterpolationTimeOffset) + adaptativeInterpolationMinimumOffset;
+                InterpolationTimeOffset = Mathf.Clamp(targetInterpolationTime, minInterpolationTimeOffset, maxInterpolationTimeOffset) + adaptativeInterpolationMinimumOffset;
             }
 
             // update the last adaptative interpolation update time
@@ -230,7 +246,7 @@ namespace NetSquare.Client
                 // display upload speed
                 GUI.Label(new Rect(Screen.width / 2 - 100, 80, 200, 100), "Upload Speed: " + currentClientStatistics.Uploading + " ko/s");
                 // display adaptatie interpolation time offset
-                GUI.Label(new Rect(Screen.width / 2 - 100, 100, 200, 100), "Interpolation Time Offset: " + interpolationTimeOffset);
+                GUI.Label(new Rect(Screen.width / 2 - 100, 100, 200, 100), "Interpolation Time Offset: " + InterpolationTimeOffset);
             }
         }
     }

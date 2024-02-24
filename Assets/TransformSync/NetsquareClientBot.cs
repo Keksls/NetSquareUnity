@@ -46,7 +46,7 @@ namespace NetSquare.Client
             ExecuteInMainThread((msg) =>
             {
                 // Create a new transform sender
-                PlayerController.TransformSender = new NetsquareTransformSender(PlayerController.NetworkSendRate, PlayerController.TransformFramesStoreRate, PlayerController.TransformFramesStoreRateFast);
+                PlayerController.InitializeTransformSender();
                 // Join a world
                 PlayerController.TransformSender.JoinWorld(client, 1, transform);
             }, null);

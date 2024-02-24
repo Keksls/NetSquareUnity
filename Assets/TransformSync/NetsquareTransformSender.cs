@@ -6,9 +6,10 @@ namespace NetSquare.Client
 {
     public struct NetsquareTransformSender
     {
-        public float NetworkSendRate { get; set; }
-        public float TransformFramesStoreRate { get; set; }
-        public float TransformFramesStoreRateFast { get; set; }
+        #region Variables
+        private float NetworkSendRate { get; set; }
+        private float TransformFramesStoreRate { get; set; }
+        private float TransformFramesStoreRateFast { get; set; }
         private bool lastFrameIsWalking;
         private bool lastFrameIsJumping;
         private bool lastFrameIsFalling;
@@ -17,6 +18,7 @@ namespace NetSquare.Client
         private Quaternion lastFrameRotation;
         private float networkSendTime;
         private float transformFramesStoreTime;
+        #endregion
 
         /// <summary>
         /// Create a new NetsquareTransformSender with the given send rate and frame store rate
@@ -24,7 +26,7 @@ namespace NetSquare.Client
         /// <param name="sendRate"> The send rate (rate used to send stored frames to server) </param>
         /// <param name="frameStoreRate"> The frame store rate (rate used to store frames) </param>
         /// <param name="frameStoreRateFast"> The frame store rate fast (rate used to store frames when the player is jumping, falling or doing quick actions) </param>
-        public NetsquareTransformSender(float sendRate = 0.5f, float frameStoreRate = 0.5f, float frameStoreRateFast = 0.2f)
+        public NetsquareTransformSender(float sendRate, float frameStoreRate, float frameStoreRateFast)
         {
             NetworkSendRate = sendRate;
             TransformFramesStoreRate = frameStoreRate;
