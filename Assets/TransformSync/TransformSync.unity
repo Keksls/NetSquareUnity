@@ -440,8 +440,8 @@ PrefabInstance:
       value: TransformsManager
       objectReference: {fileID: 0}
     - target: {fileID: 4467876849637874799, guid: 4ca899dfa4c68574a9cde79ae41198ee, type: 3}
-      propertyPath: AdaptativeInterpolation
-      value: 1
+      propertyPath: debugClientID
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 4634426750677570764, guid: 4ca899dfa4c68574a9cde79ae41198ee, type: 3}
       propertyPath: m_LocalPosition.x

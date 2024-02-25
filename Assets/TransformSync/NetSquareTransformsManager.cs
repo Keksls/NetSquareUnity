@@ -2,6 +2,7 @@ using NetSquare.Core;
 using NetSquareClient;
 using NetSquareCore;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace NetSquare.Client
@@ -27,10 +28,19 @@ namespace NetSquare.Client
         private float adaptativeInterpolationUpdateInterval = 0.2f;
         private float lastAdaptativeInterpolationUpdateTime;
         private List<float> lastMaxInterpolationTimes;
+        private bool transformFrameReceivedSinceLastAdaptativeInterpolationUpdate = false;
 
         private Dictionary<uint, NetworkPlayerData> players = new Dictionary<uint, NetworkPlayerData>();
         private ClientStatisticsManager clientStatisticsManager;
         private ClientStatistics currentClientStatistics;
+
+        [Header("Debug")]
+        [SerializeField]
+        private bool debugTransforms = false;
+        [SerializeField]
+        private uint debugClientID = 1;
+        private List<NetsquareTransformFrame> debugTransformFrames = new List<NetsquareTransformFrame>();
+        private List<int> debugTransformFramesPackedIndex = new List<int>();
 
         private void Awake()
         {
@@ -85,6 +95,13 @@ namespace NetSquare.Client
                 {
                     players[clientID].AddTransformFrame(transform);
                 }
+                transformFrameReceivedSinceLastAdaptativeInterpolationUpdate = true;
+            }
+
+            if (debugTransforms && clientID == debugClientID)
+            {
+                debugTransformFramesPackedIndex.Add(debugTransformFrames.Count);
+                debugTransformFrames.AddRange(transformsFrames);
             }
         }
 
@@ -122,7 +139,7 @@ namespace NetSquare.Client
         private void AdaptativeInterpotationUpdate()
         {
             // check if we need to update the interpolation time offset
-            if (!AdaptativeInterpolation)
+            if (!AdaptativeInterpolation || !transformFrameReceivedSinceLastAdaptativeInterpolationUpdate)
             {
                 return;
             }
@@ -144,6 +161,8 @@ namespace NetSquare.Client
                 lastMaxInterpolationTimes.Clear();
             }
 
+            // handle the transform frame received since last adaptative interpolation update
+            transformFrameReceivedSinceLastAdaptativeInterpolationUpdate = false;
             // get the max interpolation time on current players
             float currentMaxInterpolationTime = float.MinValue;
             foreach (var player in players)
@@ -249,6 +268,52 @@ namespace NetSquare.Client
                 GUI.Label(new Rect(Screen.width / 2 - 100, 100, 200, 100), "Interpolation Time Offset: " + InterpolationTimeOffset);
             }
         }
+
+        private void OnDrawGizmos()
+        {
+            if (!debugTransforms)
+            {
+                return;
+            }
+
+            // draw lines between each transform frame and draw a sphere at each transform frame position
+            int index = 0;
+            for (int i = 0; i < debugTransformFrames.Count - 1; i++)
+            {
+                // get the from and to position
+                Vector3 from = new Vector3(debugTransformFrames[i].x, debugTransformFrames[i].y, debugTransformFrames[i].z);
+                Vector3 to = new Vector3(debugTransformFrames[i + 1].x, debugTransformFrames[i + 1].y, debugTransformFrames[i + 1].z);
+
+                // check if the transform frame has already been played
+                bool alreadyPlayed = false;
+                if (players.ContainsKey(debugClientID) && players[debugClientID].TransformFrames.Count > 0)
+                {
+                    float mostRecentFrameTimeForClient = players[debugClientID].TransformFrames[0].Time;
+                    foreach (var frame in players[debugClientID].TransformFrames)
+                    {
+                        if (frame.Time < mostRecentFrameTimeForClient)
+                        {
+                            mostRecentFrameTimeForClient = frame.Time;
+                        }
+                    }
+                    alreadyPlayed = debugTransformFrames[i].Time < mostRecentFrameTimeForClient;
+                }
+
+                // draw the line and the sphere
+                Gizmos.color = alreadyPlayed ? Color.green : Color.red;
+                Gizmos.DrawLine(from, to);
+                Gizmos.color = Color.blue;
+                Gizmos.DrawSphere(from, 0.1f);
+
+                // draw the index of the transform frame
+                if (debugTransformFramesPackedIndex.Count > index && i == debugTransformFramesPackedIndex[index])
+                {
+                    Gizmos.color = Color.cyan;
+                    Gizmos.DrawSphere(from, 0.2f);
+                    index++;
+                }
+            }
+        }
     }
 
     public class NetworkPlayerData
@@ -291,7 +356,6 @@ namespace NetSquare.Client
             if (currentLerpTime < TransformFrames[1].Time)
             {
                 // Increment the lerp time
-                currentLerpTime += Time.deltaTime;
                 float lerpT = (currentLerpTime - TransformFrames[0].Time) / (TransformFrames[1].Time - TransformFrames[0].Time);
 
                 // Lerp position
