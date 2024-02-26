@@ -80,7 +80,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   PlayerController: {fileID: 3263011844781839245}
-  NbMaxMessagesByFrame: 4096
+  NbMaxMessagesByFrame: 32
 --- !u!114 &3263011844781839245
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -209,8 +209,8 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   NetworkSendRate: 0.2
-  TransformFramesStoreRate: 0.2
-  TransformFramesStoreRateFast: 0.1
+  TransformFramesStoreRate: 0.1
+  TransformFramesStoreRateFast: 0.05
 --- !u!33 &6020006334392667951
 MeshFilter:
   m_ObjectHideFlags: 0

@@ -39,6 +39,8 @@ namespace NetSquare.Client
         private bool debugTransforms = false;
         [SerializeField]
         private uint debugClientID = 1;
+        [SerializeField]
+        private int maxDebugTransforms = 100;
         private List<NetsquareTransformFrame> debugTransformFrames = new List<NetsquareTransformFrame>();
         private List<int> debugTransformFramesPackedIndex = new List<int>();
 
@@ -100,6 +102,17 @@ namespace NetSquare.Client
 
             if (debugTransforms && clientID == debugClientID)
             {
+                if (debugTransformFrames.Count > maxDebugTransforms)
+                {
+                    int nbToRem = debugTransformFrames.Count - maxDebugTransforms;
+                    debugTransformFrames.RemoveRange(0, nbToRem);
+
+                    for (int i = 0; i < debugTransformFramesPackedIndex.Count; i++)
+                    {
+                        debugTransformFramesPackedIndex[i] -= nbToRem;
+                    }
+                }
+
                 debugTransformFramesPackedIndex.Add(debugTransformFrames.Count);
                 debugTransformFrames.AddRange(transformsFrames);
             }
@@ -115,15 +128,17 @@ namespace NetSquare.Client
             }
         }
 
-        private void WorldsManager_OnClientJoinWorld(NetworkMessage obj)
+        private void WorldsManager_OnClientJoinWorld(uint clientID, NetsquareTransformFrame transform, NetworkMessage obj)
         {
-            if (players.ContainsKey(obj.ClientID))
+            if (players.ContainsKey(clientID))
             {
                 return;
             }
             // Create a new player
             GameObject player = Instantiate(PlayerPrefab);
-            players.Add(obj.ClientID, new NetworkPlayerData(obj.ClientID, player.GetComponent<NetsquareOtherPlayerController>()));
+            player.transform.position = new Vector3(transform.x, transform.y, transform.z);
+            player.transform.rotation = new Quaternion(transform.rx, transform.ry, transform.rz, transform.rw);
+            players.Add(clientID, new NetworkPlayerData(clientID, player.GetComponent<NetsquareOtherPlayerController>()));
         }
         #endregion
 
@@ -203,9 +218,10 @@ namespace NetSquare.Client
                     sum += time;
                 }
                 float targetInterpolationTime = sum / lastMaxInterpolationTimes.Count;
-
+                targetInterpolationTime *= 2f;
+                targetInterpolationTime += adaptativeInterpolationMinimumOffset;
                 // update the interpolation time offset
-                InterpolationTimeOffset = Mathf.Clamp(targetInterpolationTime, minInterpolationTimeOffset, maxInterpolationTimeOffset) + adaptativeInterpolationMinimumOffset;
+                InterpolationTimeOffset = Mathf.Clamp(targetInterpolationTime, minInterpolationTimeOffset, maxInterpolationTimeOffset);
             }
 
             // update the last adaptative interpolation update time

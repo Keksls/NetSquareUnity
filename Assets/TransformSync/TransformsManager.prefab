@@ -50,8 +50,9 @@ MonoBehaviour:
   AdaptativeInterpolation: 1
   maxInterpolationTimeOffset: 10
   minInterpolationTimeOffset: 0.1
-  adaptativeInterpolationMinimumOffset: 0.1
+  adaptativeInterpolationMinimumOffset: 0.4
   maxInterpolationTimesCount: 10
   adaptativeInterpolationUpdateInterval: 0.5
   debugTransforms: 1
-  debugClientID: 6
+  debugClientID: 2
+  maxDebugTransforms: 100

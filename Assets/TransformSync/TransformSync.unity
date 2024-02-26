@@ -439,10 +439,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: TransformsManager
       objectReference: {fileID: 0}
-    - target: {fileID: 4467876849637874799, guid: 4ca899dfa4c68574a9cde79ae41198ee, type: 3}
-      propertyPath: debugClientID
-      value: 2
-      objectReference: {fileID: 0}
     - target: {fileID: 4634426750677570764, guid: 4ca899dfa4c68574a9cde79ae41198ee, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -502,7 +498,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3214703894692031038, guid: d3e43cb32950cbc429d95763eded5e60, type: 3}
       propertyPath: NbMaxMessagesByFrame
-      value: 4096
+      value: 32
       objectReference: {fileID: 0}
     - target: {fileID: 5060277205073658093, guid: d3e43cb32950cbc429d95763eded5e60, type: 3}
       propertyPath: m_Name

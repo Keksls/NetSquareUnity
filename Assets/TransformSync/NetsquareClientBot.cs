@@ -89,15 +89,12 @@ namespace NetSquare.Client
             }
 
             // Update the bot states
-            if (jumpTime > Time.time)
+            if (jumpTime < Time.time)
             {
                 jump = Random.Range(0, 2) == 0;
                 jumpTime = Random.Range(4f, 8f) + Time.time;
             }
-            else
-            {
-                jump = false;
-            }
+
             if (sprintTime < Time.time)
             {
                 sprint = Random.Range(0, 2) == 0;
@@ -136,6 +133,7 @@ namespace NetSquare.Client
             PlayerController.Jump(jump);
             PlayerController.UpdatePlayer();
             PlayerController.Sync(client);
+            jump = false;
         }
     }
 }
