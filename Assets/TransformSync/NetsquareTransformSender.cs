@@ -1,4 +1,3 @@
-using NetSquareClient;
 using NetSquareCore;
 using UnityEngine;
 
@@ -47,7 +46,7 @@ namespace NetSquare.Client
         /// </summary>
         /// <param name="worldID"> The world ID </param>
         /// <param name="playerTransform"> The player transform </param>
-        public void JoinWorld(NetSquare_Client client, ushort worldID, Transform playerTransform)
+        public void JoinWorld(NetSquareClient client, ushort worldID, Transform playerTransform)
         {
             // check if the client is connected and time is synchronized
             if (client == null || !client.IsConnected)
@@ -75,7 +74,7 @@ namespace NetSquare.Client
         /// </summary>
         /// <param name="states"> The player states </param>
         /// <param name="playerTransform"> The player transform </param>
-        public void Update(NetSquare_Client client, PlayerStates states, Transform playerTransform)
+        public void Update(NetSquareClient client, PlayerStates states, Transform playerTransform)
         {
             // check if the client is connected and time is synchronized
             if (client == null || !client.IsConnected || !NSClient.Client.IsTimeSynchonized)
@@ -119,7 +118,7 @@ namespace NetSquare.Client
         /// </summary>
         /// <param name="states"> The player states </param>
         /// <param name="playerTransform"> The player transform </param>
-        public void SendNetworkState(NetSquare_Client client, PlayerStates states, Transform playerTransform)
+        public void SendNetworkState(NetSquareClient client, PlayerStates states, Transform playerTransform)
         {
             // handle transform frames store rate
             if (Time.time > transformFramesStoreTime)
@@ -146,7 +145,7 @@ namespace NetSquare.Client
         /// <param name="playerTransform"> The player transform </param>
         /// <param name="states"> The player states </param>
         /// <param name="state"> The transform state </param>
-        public void StoreTransformFrame(NetSquare_Client client, Transform playerTransform, PlayerStates states, NetSqauareTransformState state)
+        public void StoreTransformFrame(NetSquareClient client, Transform playerTransform, PlayerStates states, NetSqauareTransformState state)
         {
             client.WorldsManager.StoreTransformFrame(GetNetSquareTransformFrame(playerTransform, (byte)state));
             transformFramesStoreTime = Time.time + (states.IsJumping ? TransformFramesStoreRateFast : TransformFramesStoreRate);

@@ -1,6 +1,5 @@
 using NetSquare.Client;
 using NetSquare.Core;
-using NetSquareClient;
 using System;
 using UnityEngine;
 
@@ -21,7 +20,7 @@ public static class NSClient
     /// <summary>
     /// NetSquare Client
     /// </summary>
-    public static NetSquare_Client Client { get; private set; }
+    public static NetSquareClient Client { get; private set; }
     /// <summary>
     /// The current local time of the client
     /// </summary>
@@ -79,7 +78,13 @@ public static class NSClient
     /// </summary>
     static NSClient()
     {
+        // Set the time offset between client and server
         timeOffset = new TimeSpan(DateTime.UtcNow.Ticks).TotalSeconds - Time.time;
+        // Create a new NetSquare Client
+        Client = new NetSquareClient();
+        // Set the main thread callback for the dispatcher and register the exception event
+        Client.Dispatcher.SetMainThreadCallback(NetSquareController.Instance.ExecuteInMainThread);
+        Client.OnException += NetSquareController.Instance.Client_OnException;
     }
 
     /// <summary>
@@ -87,23 +92,15 @@ public static class NSClient
     /// </summary>
     /// <param name="hostNameOrIPAdress">Hostname or IPAdress to start client on</param>
     /// <param name="Port">Port to start client on</param>
-    public static void Connect(string hostNameOrIPAdress, int port, bool debugMode)
+    public static void Connect(string hostNameOrIPAdress, int port, bool debugMode, NetSquareProtocoleType protocoleType, bool synchronizeUsingUDP)
     {
-        if (Client == null)
-        {
-            // Create a new NetSquare Client
-            Client = new NetSquare_Client(NetSquareController.Instance.ProtocoleType, NetSquareController.Instance.SynchronizeUsingUDP);
-            // Set the main thread callback for the dispatcher and register the exception event
-            Client.Dispatcher.SetMainThreadCallback(NetSquareController.Instance.ExecuteInMainThread);
-            Client.OnException += NetSquareController.Instance.Client_OnException;
-        }
         debug = debugMode;
         if (debug)
         {
             Debug.Log("[NetSquare] Connecting to server on " + hostNameOrIPAdress + ":" + port + "  |  " + Client.Dispatcher.Count + " Action" + (Client.Dispatcher.Count > 1 ? "s" : "") + " registered");
         }
         BeforeConnectClient?.Invoke();
-        Client.Connect(hostNameOrIPAdress, port);
+        Client.Connect(hostNameOrIPAdress, port, protocoleType, synchronizeUsingUDP);
         AfterConnectClient?.Invoke();
         Client.OnConnected += Client_Connected;
         Client.OnDisconected += Client_Disconected;

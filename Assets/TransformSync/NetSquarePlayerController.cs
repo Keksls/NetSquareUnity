@@ -1,4 +1,3 @@
-using NetSquareClient;
 using System.Collections;
 using UnityEngine;
 
@@ -260,7 +259,7 @@ namespace NetSquare.Client
         /// <summary>
         /// Sync the player state to the server
         /// </summary>
-        public void Sync(NetSquare_Client client)
+        public void Sync(NetSquareClient client)
         {
             // Send the player state to the server
             TransformSender.Update(client, States, transform);

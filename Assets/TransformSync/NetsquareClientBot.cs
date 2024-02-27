@@ -1,12 +1,11 @@
 using NetSquare.Core;
-using NetSquareClient;
 using System.Collections.Concurrent;
 using UnityEngine;
 
 namespace NetSquare.Client
 {
     [RequireComponent(typeof(NetSquarePlayerController))]
-    public class NetsquareClientBot : MonoBehaviour
+    public class NetSquareClientBot : MonoBehaviour
     {
         #region Variables
         public NetSquarePlayerController PlayerController;
@@ -18,7 +17,7 @@ namespace NetSquare.Client
         private bool sprint;
         private bool jump;
         private Vector3 targetPosition;
-        private NetSquare_Client client;
+        private NetSquareClient client;
         private ConcurrentQueue<NetSquareActionData> netSquareActions = new ConcurrentQueue<NetSquareActionData>();
         private NetSquareActionData currentAction;
         private float jumpTime = 0f;
@@ -32,11 +31,11 @@ namespace NetSquare.Client
         private void Start()
         {
             IsConnected = false;
-            client = new NetSquare_Client(NetSquareController.Instance.ProtocoleType, NetSquareController.Instance.SynchronizeUsingUDP);
+            client = new NetSquareClient();
             client.Dispatcher.SetMainThreadCallback(ExecuteInMainThread);
             client.OnException += Client_OnException;
             client.OnConnected += Client_OnConnected;
-            client.Connect(NetSquareController.Instance.IPAdress, NetSquareController.Instance.Port);
+            client.Connect(NetSquareController.Instance.IPAdress, NetSquareController.Instance.Port, NetSquareController.Instance.ProtocoleType, NetSquareController.Instance.SynchronizeUsingUDP);
         }
 
         /// <summary>

@@ -17,7 +17,7 @@ namespace NetSquare.Client
         private float MaxSpawnY = 100;
         [SerializeField]
         private float spawnInterval = 2;
-        private List<NetsquareClientBot> bots = new List<NetsquareClientBot>();
+        private List<NetSquareClientBot> bots = new List<NetSquareClientBot>();
         #endregion
 
         /// <summary>
@@ -56,7 +56,7 @@ namespace NetSquare.Client
             {
                 Vector3 spawnPosition = new Vector3(Random.Range(0, MaxSpawnX), 0, Random.Range(0, MaxSpawnY));
                 GameObject botGO = Instantiate(botPrefab, spawnPosition, Quaternion.identity);
-                NetsquareClientBot bot = botGO.GetComponent<NetsquareClientBot>();
+                NetSquareClientBot bot = botGO.GetComponent<NetSquareClientBot>();
                 bots.Add(bot);
                 yield return new WaitForSeconds(spawnInterval);
             }

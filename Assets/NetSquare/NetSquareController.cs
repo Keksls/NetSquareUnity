@@ -9,7 +9,7 @@ namespace NetSquare.Client
 {
     public class NetSquareController : MonoBehaviour
     {
-        #region
+        #region Variables
         /// <summary>
         /// Maximum messages to handle per frame.
         /// </summary>
@@ -60,7 +60,7 @@ namespace NetSquare.Client
 
             ProtocoleManager.SetCompressor(MessagesCompression);
             ProtocoleManager.SetEncryptor(MessagesEncryption);
-            NSClient.Connect(IPAdress, Port, DebugMode);
+            NSClient.Connect(IPAdress, Port, DebugMode, ProtocoleType, SynchronizeUsingUDP);
             if (DebugMode)
             {
                 Debug.Log(NSClient.Client.Dispatcher.GetRegisteredActionsString());
