@@ -44,9 +44,6 @@ namespace NetSquare.Client
             }
             else
                 Destroy(gameObject);
-            // Set the main thread callback for the dispatcher and register the exception event
-            NSClient.Client.Dispatcher.SetMainThreadCallback(ExecuteInMainThread);
-            NSClient.Client.OnException += Client_OnException;
         }
 
         /// <summary>
@@ -54,14 +51,20 @@ namespace NetSquare.Client
         /// </summary>
         void Start()
         {
-            Debug.Log("Connecting");
+            if (DebugMode)
+            {
+                Debug.Log("Connecting");
+                NSClient.OnConnected += NSClient_OnConnected;
+                NSClient.OnConnectionFail += NSClient_OnConnectionFail;
+            }
 
-            NSClient.OnConnected += NSClient_OnConnected;
-            NSClient.OnConnectionFail += NSClient_OnConnectionFail;
             ProtocoleManager.SetCompressor(MessagesCompression);
             ProtocoleManager.SetEncryptor(MessagesEncryption);
-            Debug.Log(NSClient.Client.Dispatcher.GetRegisteredActionsString());
             NSClient.Connect(IPAdress, Port, DebugMode);
+            if (DebugMode)
+            {
+                Debug.Log(NSClient.Client.Dispatcher.GetRegisteredActionsString());
+            }
         }
 
         /// <summary>
@@ -109,7 +112,7 @@ namespace NetSquare.Client
         /// Event raised when client throw an exception
         /// </summary>
         /// <param name="ex">The exception raised</param>
-        private void Client_OnException(Exception ex)
+        public void Client_OnException(Exception ex)
         {
             Debug.LogError("NetSquare reception exception : \n" + ex.ToString());
         }

@@ -60,10 +60,13 @@ namespace NetSquare.Client
             client.WorldsManager.AutoSendFrames = false;
             client.WorldsManager.TryJoinWorld(worldID, GetNetSquareTransformFrame(playerTransform, 0), (success) =>
             {
-                if (success)
-                    Debug.Log("Player " + client.ClientID + " is now in world " + worldID);
-                else
-                    Debug.LogError("Player " + client.ClientID + " cannot enter world " + worldID);
+                if (NetSquareController.Instance.DebugMode)
+                {
+                    if (success)
+                        Debug.Log("Player " + client.ClientID + " is now in world " + worldID);
+                    else
+                        Debug.LogError("Player " + client.ClientID + " cannot enter world " + worldID);
+                }
             });
         }
 

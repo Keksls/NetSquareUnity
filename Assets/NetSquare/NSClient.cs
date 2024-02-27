@@ -80,7 +80,6 @@ public static class NSClient
     static NSClient()
     {
         timeOffset = new TimeSpan(DateTime.UtcNow.Ticks).TotalSeconds - Time.time;
-        Client = new NetSquare_Client(NetSquareController.Instance.ProtocoleType, NetSquareController.Instance.SynchronizeUsingUDP);
     }
 
     /// <summary>
@@ -90,8 +89,19 @@ public static class NSClient
     /// <param name="Port">Port to start client on</param>
     public static void Connect(string hostNameOrIPAdress, int port, bool debugMode)
     {
-        Debug.Log("[NetSquare] Connecting to server on " + hostNameOrIPAdress + ":" + port + "  |  " + Client.Dispatcher.Count + " Action" + (Client.Dispatcher.Count > 1 ? "s" : "") + " registered");
+        if (Client == null)
+        {
+            // Create a new NetSquare Client
+            Client = new NetSquare_Client(NetSquareController.Instance.ProtocoleType, NetSquareController.Instance.SynchronizeUsingUDP);
+            // Set the main thread callback for the dispatcher and register the exception event
+            Client.Dispatcher.SetMainThreadCallback(NetSquareController.Instance.ExecuteInMainThread);
+            Client.OnException += NetSquareController.Instance.Client_OnException;
+        }
         debug = debugMode;
+        if (debug)
+        {
+            Debug.Log("[NetSquare] Connecting to server on " + hostNameOrIPAdress + ":" + port + "  |  " + Client.Dispatcher.Count + " Action" + (Client.Dispatcher.Count > 1 ? "s" : "") + " registered");
+        }
         BeforeConnectClient?.Invoke();
         Client.Connect(hostNameOrIPAdress, port);
         AfterConnectClient?.Invoke();
@@ -158,7 +168,10 @@ public static class NSClient
     /// </summary>
     private static void Client_Disconected()
     {
-        Debug.Log("[NetSquare] Disconnected from server");
+        if (debug)
+        {
+            Debug.Log("[NetSquare] Disconnected from server");
+        }
         IsConnected = false;
 
         Client.Dispatcher.ExecuteinMainThread((action) =>
@@ -173,7 +186,10 @@ public static class NSClient
     /// <param name="clientID">ID of the client</param>
     private static void Client_Connected(uint clientID)
     {
-        Debug.Log("[NetSquare] Connected to server with ID : " + clientID);
+        if (debug)
+        {
+            Debug.Log("[NetSquare] Connected to server with ID : " + clientID);
+        }
         ClientID = clientID;
 
         Client.Dispatcher.ExecuteinMainThread((action) =>

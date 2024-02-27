@@ -46,13 +46,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   PlayerPrefab: {fileID: 123723312669904207, guid: 19138d92b8b67c64c9b37b0d55497f8c, type: 3}
   InterpolationTimeOffset: 1
+  showLocalPlayer: 1
   monitorClientStatistics: 1
   AdaptativeInterpolation: 1
   maxInterpolationTimeOffset: 10
   minInterpolationTimeOffset: 0.1
-  adaptativeInterpolationMinimumOffset: 0.4
+  adaptativeInterpolationMinimumOffset: 0.2
   maxInterpolationTimesCount: 10
   adaptativeInterpolationUpdateInterval: 0.5
-  debugTransforms: 1
+  debugTransforms: 0
   debugClientID: 2
   maxDebugTransforms: 100

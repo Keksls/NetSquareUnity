@@ -44,9 +44,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2021e71069fcd84ba4f354c587cd7d8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  NbMaxMessagesByFrame: 32
+  nbMaxMessagesByFrame: 32
   IPAdress: 127.0.0.1
   Port: 5050
+  ProtocoleType: 0
+  SynchronizeUsingUDP: 0
   MessagesCompression: 0
   MessagesEncryption: 0
-  DebugMode: 1
+  DebugMode: 0
