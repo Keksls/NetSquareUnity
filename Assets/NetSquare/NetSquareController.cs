@@ -9,21 +9,26 @@ namespace NetSquare.Client
 {
     public class NetSquareController : MonoBehaviour
     {
+        #region
         /// <summary>
         /// Maximum messages to handle per frame.
         /// </summary>
         [Range(1, 4096)]
-        public short NbMaxMessagesByFrame = 32;
+        [SerializeField]
+        private short nbMaxMessagesByFrame = 32;
         public static NetSquareController Instance;
         private ConcurrentQueue<NetSquareActionData> netSquareActions = new ConcurrentQueue<NetSquareActionData>();
         private NetSquareActionData currentAction;
         public string IPAdress = "127.0.0.1";
         public int Port = 5555;
-        public eCompression MessagesCompression;
-        public eEncryption MessagesEncryption;
+        public NetSquareProtocoleType ProtocoleType;
+        public bool SynchronizeUsingUDP = false;
+        public NetSquareCompression MessagesCompression;
+        public NetSquareEncryption MessagesEncryption;
         public bool DebugMode = true;
-        private double timeOffset = 0f;
+        #endregion
 
+        #region Unity Events
         /// <summary>
         /// Singleton to reach the client anywhere.
         /// Only one client must exists, and should never be remplaced. 
@@ -31,6 +36,7 @@ namespace NetSquare.Client
         /// </summary>
         private void Awake()
         {
+            // Singleton
             if (Instance == null)
             {
                 Instance = this;
@@ -38,22 +44,14 @@ namespace NetSquare.Client
             }
             else
                 Destroy(gameObject);
-
+            // Set the main thread callback for the dispatcher and register the exception event
             NSClient.Client.Dispatcher.SetMainThreadCallback(ExecuteInMainThread);
             NSClient.Client.OnException += Client_OnException;
-
-            timeOffset = new TimeSpan(DateTime.UtcNow.Ticks).TotalSeconds - Time.time;
         }
 
         /// <summary>
-        /// Event raised when client throw an exception
+        /// Connect to server when the game start
         /// </summary>
-        /// <param name="ex">The exception raised</param>
-        private void Client_OnException(Exception ex)
-        {
-            Debug.LogError("NetSquare reception exception : \n" + ex.ToString());
-        }
-
         void Start()
         {
             Debug.Log("Connecting");
@@ -64,6 +62,56 @@ namespace NetSquare.Client
             ProtocoleManager.SetEncryptor(MessagesEncryption);
             Debug.Log(NSClient.Client.Dispatcher.GetRegisteredActionsString());
             NSClient.Connect(IPAdress, Port, DebugMode);
+        }
+
+        /// <summary>
+        /// Check at any frame if a new message have been received.
+        /// If there is some, execute their related action from main thread
+        /// </summary>
+        private void Update()
+        {
+            // Update time of the client
+            NSClient.UpdateTime();
+            // Execute messages actions from main thread
+            short i = 0;
+            while (netSquareActions.Count > 0 && i <= nbMaxMessagesByFrame)
+            {
+                i++;
+                if (!netSquareActions.TryDequeue(out currentAction))
+                    continue;
+
+                currentAction.Action?.Invoke(currentAction.Message);
+            }
+        }
+        #endregion
+
+        /// <summary>
+        /// Enqueue Action and message and pack it as a delegate for NetSquare Dispatcher.
+        /// that way, Dispatcher will invoke network messages actions from main thread
+        /// </summary>
+        /// <param name="action"></param>
+        /// <param name="message"></param>
+        public void ExecuteInMainThread(NetSquareAction action, NetworkMessage message)
+        {
+            netSquareActions.Enqueue(new NetSquareActionData(action, message));
+        }
+
+        /// <summary>
+        /// Whenever the application is closed, disconnect the client
+        /// </summary>
+        public void OnApplicationQuit()
+        {
+            NSClient.Client?.Disconnect();
+        }
+
+        #region Events Handlers
+        /// <summary>
+        /// Event raised when client throw an exception
+        /// </summary>
+        /// <param name="ex">The exception raised</param>
+        private void Client_OnException(Exception ex)
+        {
+            Debug.LogError("NetSquare reception exception : \n" + ex.ToString());
         }
 
         /// <summary>
@@ -82,54 +130,6 @@ namespace NetSquare.Client
         {
             Debug.Log("Connected");
         }
-
-        /// <summary>
-        /// Check at any frame if a new message have been received.
-        /// If there is some, execute their related action from main thread
-        /// </summary>
-        private void Update()
-        {
-            NSClient.ClientTime = (float)(new TimeSpan(DateTime.UtcNow.Ticks).TotalSeconds - timeOffset);
-            short i = 0;
-            while (netSquareActions.Count > 0 && i <= NbMaxMessagesByFrame)
-            {
-                i++;
-                if (!netSquareActions.TryDequeue(out currentAction))
-                    continue;
-
-                currentAction.Action?.Invoke(currentAction.Message);
-            }
-        }
-
-        /// <summary>
-        /// Enqueue Action and message and pack it as a delegate for NetSquare Dispatcher.
-        /// that way, Dispatcher will invoke network messages actions from main thread
-        /// </summary>
-        /// <param name="action"></param>
-        /// <param name="message"></param>
-        public void ExecuteInMainThread(NetSquareAction action, NetworkMessage message)
-        {
-            netSquareActions.Enqueue(new NetSquareActionData(action, message));
-        }
-
-        public void OnApplicationQuit()
-        {
-            NSClient.Client?.Disconnect();
-        }
-    }
-
-    /// <summary>
-    /// Internal scruct to store NetSquareActions and related NetworkMessages
-    /// </summary>
-    public struct NetSquareActionData
-    {
-        public NetSquareAction Action;
-        public NetworkMessage Message;
-
-        public NetSquareActionData(NetSquareAction action, NetworkMessage message)
-        {
-            Action = action;
-            Message = message;
-        }
+        #endregion
     }
 }

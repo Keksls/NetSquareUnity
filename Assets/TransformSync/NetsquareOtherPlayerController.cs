@@ -2,66 +2,91 @@ using UnityEngine;
 
 namespace NetSquare.Client
 {
+    /// <summary>
+    /// This class is used to control the other player's movement and animation.
+    /// </summary>
     public class NetsquareOtherPlayerController : MonoBehaviour
     {
-        public Animator Animator;
-        public PlayerStates States = new PlayerStates();
+        #region Variables
+        [SerializeField]
+        private Animator animator;
+        [SerializeField]
+        private PlayerStates states = new PlayerStates();
+        #endregion
 
+        /// <summary>
+        /// Set the transform of the other player.
+        /// </summary>
+        /// <param name="position"> The position of the other player. </param>
+        /// <param name="rotation"> The rotation of the other player. </param>
         public void SetTransform(Vector3 position, Quaternion rotation)
         {
             transform.position = position;
             transform.rotation = rotation;
         }
 
+        /// <summary>
+        /// Set the animation of the other player.
+        /// </summary>
         public void SetAnimation()
         {
-            if(Animator == null)
+            // If the animator is null, return.
+            if (animator == null)
             {
                 return;
             }
-            Animator.SetBool("IsJumping", States.IsJumping);
-            Animator.SetBool("IsFalling", States.IsFalling);
-            Animator.SetBool("IsWalking", States.IsWalking);
+            // Set the animation parameters.
+            animator.SetBool("IsJumping", states.IsJumping);
+            animator.SetBool("IsFalling", states.IsFalling);
+            animator.SetBool("IsWalking", states.IsWalking);
         }
 
+        /// <summary>
+        /// Update is called once per frame.
+        /// </summary>
         private void Update()
         {
+            // Set the animation.
             SetAnimation();
         }
 
-        public void SetState(TransformState state)
+        /// <summary>
+        /// Set the state of the other player.
+        /// </summary>
+        /// <param name="state"> The state of the other player. </param>
+        public void SetState(NetSqauareTransformState state)
         {
             switch (state)
             {
-                case TransformState.Jump_True:
-                    States.IsJumping = true;
+                case NetSqauareTransformState.Jump_True:
+                    states.IsJumping = true;
                     break;
-                case TransformState.Jump_False:
-                    States.IsJumping = false;
+                case NetSqauareTransformState.Jump_False:
+                    states.IsJumping = false;
                     break;
-                case TransformState.Fall_True:
-                    States.IsFalling = true;
+                case NetSqauareTransformState.Fall_True:
+                    states.IsFalling = true;
                     break;
-                case TransformState.Fall_False:
-                    States.IsFalling = false;
+                case NetSqauareTransformState.Fall_False:
+                    states.IsFalling = false;
                     break;
-                case TransformState.Walk_True:
-                    States.IsWalking = true;
+                case NetSqauareTransformState.Walk_True:
+                    states.IsWalking = true;
                     break;
-                case TransformState.Walk_False:
-                    States.IsWalking = false;
+                case NetSqauareTransformState.Walk_False:
+                    states.IsWalking = false;
                     break;
-                case TransformState.Grounded_True:
-                    States.IsGrounded = true;
+                case NetSqauareTransformState.Grounded_True:
+                    states.IsGrounded = true;
                     break;
-                case TransformState.Grounded_False:
-                    States.IsGrounded = false;
+                case NetSqauareTransformState.Grounded_False:
+                    states.IsGrounded = false;
                     break;
-                case TransformState.Sprint_True:
-                    States.IsSprinting = true;
+                case NetSqauareTransformState.Sprint_True:
+                    states.IsSprinting = true;
                     break;
-                case TransformState.Sprint_False:
-                    States.IsSprinting = false;
+                case NetSqauareTransformState.Sprint_False:
+                    states.IsSprinting = false;
                     break;
 
             }

@@ -1,17 +1,20 @@
 using NetSquare.Core;
 using NetSquareClient;
 using NetSquareCore;
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace NetSquare.Client
 {
     public class NetSquareTransformsManager : MonoBehaviour
     {
+        #region Variables
         public static NetSquareTransformsManager Instance;
         public GameObject PlayerPrefab;
         public float InterpolationTimeOffset = 1f;
+        [SerializeField]
+        private bool showLocalPlayer = false;
         [SerializeField]
         private bool monitorClientStatistics = false;
         [Header("Adaptative interpolation")]
@@ -30,9 +33,11 @@ namespace NetSquare.Client
         private List<float> lastMaxInterpolationTimes;
         private bool transformFrameReceivedSinceLastAdaptativeInterpolationUpdate = false;
 
-        private Dictionary<uint, NetworkPlayerData> players = new Dictionary<uint, NetworkPlayerData>();
+        private Dictionary<uint, NetworkPlayerTransformHandler> players = new Dictionary<uint, NetworkPlayerTransformHandler>();
         private ClientStatisticsManager clientStatisticsManager;
         private ClientStatistics currentClientStatistics;
+        public Func<uint, NetworkMessage, GameObject> OnPlayerJoinWorld;
+        public Action<uint> OnPlayerleaveWorld;
 
         [Header("Debug")]
         [SerializeField]
@@ -43,9 +48,11 @@ namespace NetSquare.Client
         private int maxDebugTransforms = 100;
         private List<NetsquareTransformFrame> debugTransformFrames = new List<NetsquareTransformFrame>();
         private List<int> debugTransformFramesPackedIndex = new List<int>();
+        #endregion
 
         private void Awake()
         {
+            // prevent to create multiple instances of the NetSquareTransformsManager
             if (Instance == null)
             {
                 Instance = this;
@@ -54,12 +61,35 @@ namespace NetSquare.Client
             else
                 Destroy(gameObject);
 
+            // register the events
             NSClient.OnConnected += NSClient_OnConnected;
             NSClient.OnDisconnected += NSClient_OnDisconnected;
         }
 
+        private void OnDestroy()
+        {
+            // unregister the events
+            NSClient.OnConnected -= NSClient_OnConnected;
+            NSClient.OnDisconnected -= NSClient_OnDisconnected;
+        }
+
+        private void Update()
+        {
+            // update the adaptative interpolation time offset
+            AdaptativeInterpotationUpdate();
+            // update the transform of each player
+            foreach (var player in players)
+            {
+                player.Value.UpdateTransform(InterpolationTimeOffset);
+            }
+        }
+
         #region Events Registration
-        private void NSClient_OnConnected(uint obj)
+        /// <summary>
+        /// Handle the connection of the client
+        /// </summary>
+        /// <param name="clientID"> The client ID </param>
+        private void NSClient_OnConnected(uint clientID)
         {
             NSClient.Client.WorldsManager.OnClientJoinWorld += WorldsManager_OnClientJoinWorld;
             NSClient.Client.WorldsManager.OnClientLeaveWorld += WorldsManager_OnClientLeaveWorld;
@@ -75,11 +105,18 @@ namespace NetSquare.Client
             }
         }
 
+        /// <summary>
+        /// Handle the client statistics update
+        /// </summary>
+        /// <param name="clientStatistics"> The client statistics </param>
         private void ClientStatisticsManager_OnGetStatistics(ClientStatistics clientStatistics)
         {
             currentClientStatistics = clientStatistics;
         }
 
+        /// <summary>
+        /// Handle the disconnection of the client
+        /// </summary>
         private void NSClient_OnDisconnected()
         {
             NSClient.Client.WorldsManager.OnClientJoinWorld -= WorldsManager_OnClientJoinWorld;
@@ -89,17 +126,24 @@ namespace NetSquare.Client
         #endregion
 
         #region Events Handlers
+        /// <summary>
+        /// Handle the move of a client
+        /// </summary>
+        /// <param name="clientID"> The client ID </param>
+        /// <param name="transformsFrames"> The transform frames </param>
         private void WorldsManager_OnClientMove(uint clientID, NetsquareTransformFrame[] transformsFrames)
         {
-            if (players.ContainsKey(clientID))
+            // prevent to add transform frames if the player doesn't exist
+            if (!players.ContainsKey(clientID))
             {
-                foreach (NetsquareTransformFrame transform in transformsFrames)
-                {
-                    players[clientID].AddTransformFrame(transform);
-                }
-                transformFrameReceivedSinceLastAdaptativeInterpolationUpdate = true;
+                return;
             }
 
+            // add the transform frames to the player
+            players[clientID].AddTransformFrames(transformsFrames);
+            transformFrameReceivedSinceLastAdaptativeInterpolationUpdate = true;
+
+            // add the transform frames to the debug list
             if (debugTransforms && clientID == debugClientID)
             {
                 if (debugTransformFrames.Count > maxDebugTransforms)
@@ -118,39 +162,68 @@ namespace NetSquare.Client
             }
         }
 
+        /// <summary>
+        /// Handle the leave of a client
+        /// </summary>
+        /// <param name="clientID"> The client ID </param>
         private void WorldsManager_OnClientLeaveWorld(uint clientID)
         {
-            if (players.ContainsKey(clientID))
+            // prevent to remove the player if it doesn't exist
+            if (!players.ContainsKey(clientID))
             {
-                Destroy(players[clientID].Player);
-                Destroy(players[clientID].Player.gameObject);
-                players.Remove(clientID);
+                return;
             }
+            // remove the player
+            if (OnPlayerleaveWorld != null)
+            {
+                OnPlayerleaveWorld(clientID);
+            }
+            else
+            {
+                Destroy(players[clientID].Player.gameObject);
+            }
+            players.Remove(clientID);
         }
 
-        private void WorldsManager_OnClientJoinWorld(uint clientID, NetsquareTransformFrame transform, NetworkMessage obj)
+        /// <summary>
+        /// Handle the join of a client
+        /// </summary>
+        /// <param name="clientID"> The client ID </param>
+        /// <param name="transform"> The transform of the player </param>
+        /// <param name="message"> The message received </param>
+        private void WorldsManager_OnClientJoinWorld(uint clientID, NetsquareTransformFrame transform, NetworkMessage message)
         {
-            if (players.ContainsKey(clientID))
+            // prevent to create a player if it already exists or if it's the local player and we don't want to show it
+            if (players.ContainsKey(clientID) || !showLocalPlayer && clientID == NSClient.ClientID)
             {
                 return;
             }
             // Create a new player
-            GameObject player = Instantiate(PlayerPrefab);
+            GameObject player;
+            if (OnPlayerJoinWorld != null)
+            {
+                player = OnPlayerJoinWorld(clientID, message);
+            }
+            else
+            {
+                player = Instantiate(PlayerPrefab);
+            }
+            NetsquareOtherPlayerController netsquareOtherPlayerController = player.GetComponent<NetsquareOtherPlayerController>();
+            if (netsquareOtherPlayerController == null)
+            {
+                Debug.LogError("The player prefab must have a NetsquareOtherPlayerController component");
+                Destroy(player);
+                return;
+            }
             player.transform.position = new Vector3(transform.x, transform.y, transform.z);
             player.transform.rotation = new Quaternion(transform.rx, transform.ry, transform.rz, transform.rw);
-            players.Add(clientID, new NetworkPlayerData(clientID, player.GetComponent<NetsquareOtherPlayerController>()));
+            players.Add(clientID, new NetworkPlayerTransformHandler(clientID, netsquareOtherPlayerController));
         }
         #endregion
 
-        private void Update()
-        {
-            AdaptativeInterpotationUpdate();
-            foreach (var player in players)
-            {
-                player.Value.UpdateTransform(InterpolationTimeOffset);
-            }
-        }
-
+        /// <summary>
+        /// Update the adaptative interpolation time offset
+        /// </summary>
         private void AdaptativeInterpotationUpdate()
         {
             // check if we need to update the interpolation time offset
@@ -228,10 +301,16 @@ namespace NetSquare.Client
             lastAdaptativeInterpolationUpdateTime = Time.time;
         }
 
-        float minTime = float.MaxValue;
-        float maxTime = float.MinValue;
         private void OnGUI()
         {
+            // prevent to display the debug information if the debug mode is disabled
+            if (!debugTransforms)
+            {
+                return;
+            }
+
+            float minTime = float.MaxValue;
+            float maxTime = float.MinValue;
             // Display the number of players at top right corner
             GUI.Label(new Rect(Screen.width - 200, 0, 200, 100), "Players: " + players.Count);
             // Display the min Time value of each transform frame of any players
@@ -248,7 +327,14 @@ namespace NetSquare.Client
                         }
                     }
                 }
-                GUI.Label(new Rect(Screen.width - 200, 20, 200, 100), "Min Time: " + minTime);
+                if (minTime == float.MaxValue)
+                {
+                    GUI.Label(new Rect(Screen.width - 200, 20, 200, 100), "Min Time: NO FRAMES");
+                }
+                else
+                {
+                    GUI.Label(new Rect(Screen.width - 200, 20, 200, 100), "Min Time: " + minTime);
+                }
             }
             // Display the max Time value of each transform frame of any players
             if (players.Count > 0)
@@ -264,7 +350,14 @@ namespace NetSquare.Client
                         }
                     }
                 }
-                GUI.Label(new Rect(Screen.width - 200, 40, 200, 100), "Max Time: " + maxTime);
+                if (maxTime == float.MinValue)
+                {
+                    GUI.Label(new Rect(Screen.width - 200, 40, 200, 100), "Max Time: NO FRAMES");
+                }
+                else
+                {
+                    GUI.Label(new Rect(Screen.width - 200, 40, 200, 100), "Max Time: " + maxTime);
+                }
             }
 
             // display statistics on top center of the screen
@@ -287,6 +380,7 @@ namespace NetSquare.Client
 
         private void OnDrawGizmos()
         {
+            // prevent to draw the debug information if the debug mode is disabled
             if (!debugTransforms)
             {
                 return;
@@ -328,69 +422,6 @@ namespace NetSquare.Client
                     Gizmos.DrawSphere(from, 0.2f);
                     index++;
                 }
-            }
-        }
-    }
-
-    public class NetworkPlayerData
-    {
-        public uint ClientID;
-        public NetsquareOtherPlayerController Player;
-        public List<NetsquareTransformFrame> TransformFrames = new List<NetsquareTransformFrame>();
-        private bool playerStateSet = false;
-
-        public NetworkPlayerData(uint clientID, NetsquareOtherPlayerController player)
-        {
-            ClientID = clientID;
-            Player = player;
-        }
-
-        public void AddTransformFrame(NetsquareTransformFrame transformFrame)
-        {
-            TransformFrames.Add(transformFrame);
-        }
-
-        public void UpdateTransform(float interpolationTimeOffset)
-        {
-            // If we don't have enough frames, we can't interpolate
-            if (TransformFrames.Count < 2)
-            {
-                return;
-            }
-
-            // Set the player state
-            if (!playerStateSet)
-            {
-                playerStateSet = true;
-                Player.SetState((TransformState)TransformFrames[0].State);
-            }
-
-            // Get the current lerp time
-            float currentLerpTime = NSClient.ServerTime - interpolationTimeOffset;
-
-            // Lerp the transform
-            if (currentLerpTime < TransformFrames[1].Time)
-            {
-                // Increment the lerp time
-                float lerpT = (currentLerpTime - TransformFrames[0].Time) / (TransformFrames[1].Time - TransformFrames[0].Time);
-
-                // Lerp position
-                Vector3 fromPosition = new Vector3(TransformFrames[0].x, TransformFrames[0].y, TransformFrames[0].z);
-                Vector3 toPosition = new Vector3(TransformFrames[1].x, TransformFrames[1].y, TransformFrames[1].z);
-                Vector3 position = Vector3.Lerp(fromPosition, toPosition, lerpT);
-                // Lerp rotation
-                Quaternion fromRotation = new Quaternion(TransformFrames[0].rx, TransformFrames[0].ry, TransformFrames[0].rz, TransformFrames[0].rw);
-                Quaternion toRotation = new Quaternion(TransformFrames[1].rx, TransformFrames[1].ry, TransformFrames[1].rz, TransformFrames[1].rw);
-                Quaternion rotation = Quaternion.Lerp(fromRotation, toRotation, lerpT);
-
-                Player.SetTransform(position, rotation);
-            }
-
-            // check if we need to get new frames
-            if (currentLerpTime >= TransformFrames[1].Time)
-            {
-                TransformFrames.RemoveAt(0);
-                playerStateSet = false;
             }
         }
     }

@@ -1,10 +1,15 @@
+using NetSquare.Client;
 using NetSquare.Core;
 using NetSquareClient;
 using System;
 using UnityEngine;
 
+/// <summary>
+/// NetSquare Client
+/// </summary>
 public static class NSClient
 {
+    #region Variables
     /// <summary>
     /// Is the client connected to the server
     /// </summary>
@@ -13,6 +18,14 @@ public static class NSClient
     /// ID of the client
     /// </summary>
     public static uint ClientID { get; private set; }
+    /// <summary>
+    /// NetSquare Client
+    /// </summary>
+    public static NetSquare_Client Client { get; private set; }
+    /// <summary>
+    /// The current local time of the client
+    /// </summary>
+    public static float ClientTime { get; private set; }
     /// <summary>
     /// Event raised when client is connected to server
     /// </summary>
@@ -33,14 +46,6 @@ public static class NSClient
     /// Event raised after client connect to server
     /// </summary>
     public static event Action AfterConnectClient;
-    /// <summary>
-    /// NetSquare Client
-    /// </summary>
-    public static NetSquare_Client Client { get; set; }
-    /// <summary>
-    /// The current local time of the client
-    /// </summary>
-    public static float ClientTime { get; set; }
     /// <summary>
     /// The current server time
     /// </summary>
@@ -63,10 +68,19 @@ public static class NSClient
     /// Is the client in debug mode
     /// </summary>
     private static bool debug;
+    /// <summary>
+    /// Time offset between client and server
+    /// </summary>
+    private static double timeOffset = 0f;
+    #endregion
 
+    /// <summary>
+    /// Static constructor
+    /// </summary>
     static NSClient()
     {
-        Client = new NetSquare_Client(eProtocoleType.TCP, false);
+        timeOffset = new TimeSpan(DateTime.UtcNow.Ticks).TotalSeconds - Time.time;
+        Client = new NetSquare_Client(NetSquareController.Instance.ProtocoleType, NetSquareController.Instance.SynchronizeUsingUDP);
     }
 
     /// <summary>
@@ -87,12 +101,23 @@ public static class NSClient
     }
 
     /// <summary>
+    /// Update the client time
+    /// Must be called in the Update method of the game only once
+    /// By default, it is called in the Update method of the NetSquareController
+    /// </summary>
+    public static void UpdateTime()
+    {
+        ClientTime = (float)(new TimeSpan(DateTime.UtcNow.Ticks).TotalSeconds - timeOffset);
+    }
+
+    #region Debug
+    /// <summary>
     /// Event raised when client throw an exception
     /// </summary>
     /// <param name="ex">The exception raised</param>
     private static void Client_OnException(Exception ex)
     {
-        Debug.Log(ex.ToString());
+        Debug.LogException(ex);
     }
 
     /// <summary>
@@ -114,7 +139,9 @@ public static class NSClient
     {
         Debug.Log("<= " + message.HeadID + " | " + (MessageType)message.MsgType + " | " + message.Length + (message.MsgType == (byte)MessageType.Reply ? " | " + message.ReplyID : ""));
     }
+    #endregion
 
+    #region Event Handling
     /// <summary>
     /// Event raised when client fail to connect to server
     /// </summary>
@@ -124,19 +151,6 @@ public static class NSClient
         {
             OnConnectionFail?.Invoke();
         }, null);
-    }
-
-    /// <summary>
-    /// Disconnect NetSquare client
-    /// </summary>
-    public static void Disconnect()
-    {
-        if (!IsConnected)
-        {
-            Debug.LogWarning("Trying to disconnect client it is not connected");
-            return;
-        }
-        Client.Disconnect();
     }
 
     /// <summary>
@@ -170,10 +184,24 @@ public static class NSClient
                 Client.Client.OnMessageSend += Client_OnMessageSend;
                 Client.Client.OnException += Client_OnException;
             }
-            Client.SyncTime(10, 1000,(time) => { ServerTime = time; });
+            Client.SyncTime(10, 1000, (time) => { ServerTime = time; });
             OnConnected?.Invoke(clientID);
             IsConnected = true;
         }, null);
+    }
+    #endregion
+
+    /// <summary>
+    /// Disconnect NetSquare client
+    /// </summary>
+    public static void Disconnect()
+    {
+        if (!IsConnected)
+        {
+            Debug.LogWarning("Trying to disconnect client that is not connected");
+            return;
+        }
+        Client.Disconnect();
     }
 
     /// <summary>
@@ -255,20 +283,20 @@ public static class NSClient
     /// Add an action to call when server send message with the given HeadID
     /// </summary>
     /// <param name="headID">ID oh the action (given from the NetworkMessage headID)</param>
-    /// <param name="action">Callback to raise when NetworkMessage is received from  server</param>
-    public static void AddAction(ushort headID, NetSquareAction action)
+    /// <param name="callback">Callback to raise when NetworkMessage is received from  server</param>
+    public static void AddAction(ushort headID, NetSquareAction callback)
     {
-        Client.Dispatcher.AddHeadAction(headID, action.Method.Name, action);
+        Client.Dispatcher.AddHeadAction(headID, callback.Method.Name, callback);
     }
 
     /// <summary>
     /// Add an action to call when server send message with the given HeadID
     /// </summary>
     /// <param name="headID">ID of the action (given from the NetworkMessage headID)</param>
-    /// <param name="action">Callback to raise when NetworkMessage is received from  server</param>
-    public static void AddAction(Enum headID, NetSquareAction action)
+    /// <param name="callback">Callback to raise when NetworkMessage is received from  server</param>
+    public static void AddAction(Enum headID, NetSquareAction callback)
     {
-        Client.Dispatcher.AddHeadAction(headID, action.Method.Name, action);
+        Client.Dispatcher.AddHeadAction(headID, callback.Method.Name, callback);
     }
 
     /// <summary>

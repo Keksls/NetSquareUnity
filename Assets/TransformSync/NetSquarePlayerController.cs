@@ -13,6 +13,8 @@ namespace NetSquare.Client
         public Animator PlayerAnimator;
         public Transform CameraTransform;
         public bool IsLocalPlayer = true;
+        [SerializeField]
+        private bool debug;
         [Header("Movement")]
         public float Speed = 5;
         public float SprintSpeed = 10;
@@ -46,6 +48,9 @@ namespace NetSquare.Client
         public NetsquareTransformSender TransformSender;
         #endregion
 
+        /// <summary>
+        /// Awake the player
+        /// </summary>
         private void Awake()
         {
             States = new PlayerStates();
@@ -62,13 +67,20 @@ namespace NetSquare.Client
             }
         }
 
-        private void NSClient_OnConnected(uint obj)
+        /// <summary>
+        /// OnConnected event
+        /// </summary>
+        /// <param name="clientID"> The client ID </param>
+        private void NSClient_OnConnected(uint clientID)
         {
             InitializeTransformSender();
             // Join a world
             TransformSender.JoinWorld(NSClient.Client, 1, transform);
         }
 
+        /// <summary>
+        /// Update the player
+        /// </summary>
         void Update()
         {
             if (IsLocalPlayer)
@@ -275,6 +287,10 @@ namespace NetSquare.Client
 
         private void OnDrawGizmos()
         {
+            if (!debug)
+            {
+                return;
+            }
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(GroundCheck.position, GroundCheckRadius);
         }
@@ -282,7 +298,7 @@ namespace NetSquare.Client
         private void OnGUI()
         {
             // Check if the player is local
-            if(!IsLocalPlayer)
+            if (!IsLocalPlayer || !debug)
             {
                 return;
             }

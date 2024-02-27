@@ -8,6 +8,7 @@ namespace NetSquare.Client
     [RequireComponent(typeof(NetSquarePlayerController))]
     public class NetsquareClientBot : MonoBehaviour
     {
+        #region Variables
         public NetSquarePlayerController PlayerController;
         public int NbMaxMessagesByFrame = 32;
         public bool IsConnected { get; private set; }
@@ -23,23 +24,35 @@ namespace NetSquare.Client
         private float jumpTime = 0f;
         private float sprintTime = 0f;
         private float positionTime = 0f;
+        #endregion
 
+        /// <summary>
+        /// Start the bot
+        /// </summary>
         private void Start()
         {
             IsConnected = false;
-            client = new NetSquare_Client(eProtocoleType.TCP, false);
+            client = new NetSquare_Client(NetSquareController.Instance.ProtocoleType, NetSquareController.Instance.SynchronizeUsingUDP);
             client.Dispatcher.SetMainThreadCallback(ExecuteInMainThread);
             client.OnException += Client_OnException;
             client.OnConnected += Client_OnConnected;
             client.Connect(NetSquareController.Instance.IPAdress, NetSquareController.Instance.Port);
         }
 
-        private void Client_OnException(System.Exception obj)
+        /// <summary>
+        /// Handle the network exception
+        /// </summary>
+        /// <param name="exception"> The exception </param>
+        private void Client_OnException(System.Exception exception)
         {
-            Debug.LogError("NetSquare reception exception : \n" + obj.ToString());
+            Debug.LogError("NetSquare reception exception : \n" + exception.ToString());
         }
 
-        private void Client_OnConnected(uint obj)
+        /// <summary>
+        /// Handle the network connection
+        /// </summary>
+        /// <param name="clientID"> The client ID </param>
+        private void Client_OnConnected(uint clientID)
         {
             IsConnected = true;
             // connect to the world in main thread because it use a Unity transform
@@ -52,6 +65,9 @@ namespace NetSquare.Client
             }, null);
         }
 
+        /// <summary>
+        /// Whenever the object is destroyed, disconnect the client
+        /// </summary>
         private void OnDestroy()
         {
             client.Disconnect();
@@ -69,6 +85,9 @@ namespace NetSquare.Client
             netSquareActions.Enqueue(new NetSquareActionData(action, message));
         }
 
+        /// <summary>
+        /// Update the bot
+        /// </summary>
         public void BotUpdate()
         {
             // Execute the network messages
