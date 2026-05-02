@@ -22,6 +22,23 @@ namespace NetSquare.Client
         private bool hasReceivedStateSequenceID;
         #endregion
 
+        #region Properties
+        /// <summary>
+        /// Gets the amount of queued transform frames waiting for interpolation.
+        /// </summary>
+        public int BufferedTransformFrameCount { get { return TransformFrames.Count; } }
+
+        /// <summary>
+        /// Gets the amount of queued state frames waiting for interpolation.
+        /// </summary>
+        public int BufferedStateFrameCount { get { return stateFrames.Count; } }
+
+        /// <summary>
+        /// Gets the Unity realtime timestamp of the last accepted frame.
+        /// </summary>
+        public float LastFrameReceivedAt { get; private set; }
+        #endregion
+
         /// <summary>
         /// Create a new NetworkPlayerTransformHandler
         /// </summary>
@@ -43,6 +60,7 @@ namespace NetSquare.Client
                 return;
 
             AddOrReplaceTransformFrame(transformFrame);
+            LastFrameReceivedAt = Time.realtimeSinceStartup;
             SortTransformFrames();
             TrimTransformFrames();
         }
@@ -62,6 +80,7 @@ namespace NetSquare.Client
                     continue;
 
                 AddOrReplaceTransformFrame(transformFrame);
+                LastFrameReceivedAt = Time.realtimeSinceStartup;
             }
             SortTransformFrames();
             TrimTransformFrames();
@@ -86,6 +105,7 @@ namespace NetSquare.Client
                         continue;
 
                     AddOrReplaceTransformFrame(transformFrame);
+                    LastFrameReceivedAt = Time.realtimeSinceStartup;
                     addedTransform = true;
                 }
                 else if (frame is NetSquareStateFrame stateFrame)
@@ -94,6 +114,7 @@ namespace NetSquare.Client
                         continue;
 
                     stateFrames.Add(stateFrame);
+                    LastFrameReceivedAt = Time.realtimeSinceStartup;
                     addedState = true;
                 }
             }

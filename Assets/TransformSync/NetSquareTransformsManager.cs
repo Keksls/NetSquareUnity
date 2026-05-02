@@ -52,6 +52,56 @@ namespace NetSquare.Client
         private List<int> debugTransformFramesPackedIndex = new List<int>();
         #endregion
 
+        #region Properties
+        /// <summary>
+        /// Gets the latest client statistics sampled by this manager.
+        /// </summary>
+        public ClientStatistics CurrentClientStatistics { get { return currentClientStatistics; } }
+
+        /// <summary>
+        /// Gets the number of remote players currently visible to this client.
+        /// </summary>
+        public int VisiblePlayersCount { get { return players.Count; } }
+
+        /// <summary>
+        /// Gets the total amount of buffered transform frames across visible players.
+        /// </summary>
+        public int BufferedTransformFrameCount
+        {
+            get
+            {
+                int count = 0;
+                foreach (var player in players)
+                    count += player.Value.BufferedTransformFrameCount;
+                return count;
+            }
+        }
+
+        /// <summary>
+        /// Gets the total amount of buffered state frames across visible players.
+        /// </summary>
+        public int BufferedStateFrameCount
+        {
+            get
+            {
+                int count = 0;
+                foreach (var player in players)
+                    count += player.Value.BufferedStateFrameCount;
+                return count;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets whether transform debug capture is enabled.
+        /// </summary>
+        public bool DebugTransforms { get { return debugTransforms; } set { debugTransforms = value; } }
+
+        /// <summary>
+        /// Gets or sets the client id used for transform debug capture.
+        /// </summary>
+        public uint DebugClientID { get { return debugClientID; } set { debugClientID = value; } }
+        #endregion
+
         private void Awake()
         {
             // prevent to create multiple instances of the NetSquareTransformsManager
@@ -289,6 +339,26 @@ namespace NetSquare.Client
                 MaxBufferedTransformFrames = maxBufferedTransformFrames,
                 MaxBufferedStateFrames = maxBufferedStateFrames
             });
+        }
+        #endregion
+
+        #region Debug Snapshots
+        /// <summary>
+        /// Gets a snapshot of currently visible network players.
+        /// </summary>
+        /// <returns>Visible player handlers keyed by client id.</returns>
+        public Dictionary<uint, NetworkPlayerTransformHandler> GetPlayersSnapshot()
+        {
+            return new Dictionary<uint, NetworkPlayerTransformHandler>(players);
+        }
+
+        /// <summary>
+        /// Gets a snapshot of captured debug transform frames.
+        /// </summary>
+        /// <returns>Captured transform frames.</returns>
+        public List<NetsquareTransformFrame> GetDebugTransformFramesSnapshot()
+        {
+            return new List<NetsquareTransformFrame>(debugTransformFrames);
         }
         #endregion
 
