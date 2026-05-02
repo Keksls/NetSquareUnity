@@ -25,6 +25,13 @@ namespace NetSquare.Client
         /// </summary>
         private void Start()
         {
+            if (botPrefab == null)
+            {
+                Debug.LogError("BotsSpawner requires a bot prefab.");
+                enabled = false;
+                return;
+            }
+
             StartCoroutine(SpawnBots());
         }
 
@@ -34,8 +41,15 @@ namespace NetSquare.Client
         private void Update()
         {
             // Update the bots
-            foreach (var bot in bots)
+            for (int i = bots.Count - 1; i >= 0; i--)
             {
+                NetSquareClientBot bot = bots[i];
+                if (bot == null)
+                {
+                    bots.RemoveAt(i);
+                    continue;
+                }
+
                 bot.BotUpdate();
             }
         }
@@ -46,7 +60,7 @@ namespace NetSquare.Client
         private IEnumerator SpawnBots()
         {
             // Wait for the client to connect and time to be synchronized
-            while (!NSClient.IsConnected || !NSClient.Client.IsTimeSynchonized)
+            while (!NSClient.IsConnected || NSClient.Client == null || !NSClient.Client.IsTimeSynchonized)
             {
                 yield return null;
             }
@@ -57,7 +71,13 @@ namespace NetSquare.Client
                 Vector3 spawnPosition = new Vector3(Random.Range(0, MaxSpawnX), 0, Random.Range(0, MaxSpawnY));
                 GameObject botGO = Instantiate(botPrefab, spawnPosition, Quaternion.identity);
                 NetSquareClientBot bot = botGO.GetComponent<NetSquareClientBot>();
-                bots.Add(bot);
+                if (bot != null)
+                    bots.Add(bot);
+                else
+                {
+                    Debug.LogError("Bot prefab must contain a NetSquareClientBot component.");
+                    Destroy(botGO);
+                }
                 yield return new WaitForSeconds(spawnInterval);
             }
         }

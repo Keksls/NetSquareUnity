@@ -30,12 +30,22 @@ namespace NetSquare.Client
         /// </summary>
         private void Start()
         {
+            if (PlayerController == null)
+                PlayerController = GetComponent<NetSquarePlayerController>();
+
+            if (PlayerController == null || NetSquareController.Instance == null)
+            {
+                Debug.LogError("NetSquareClientBot requires a NetSquarePlayerController and a NetSquareController instance.");
+                enabled = false;
+                return;
+            }
+
             IsConnected = false;
             client = new NetSquareClient();
             client.Dispatcher.SetMainThreadCallback(ExecuteInMainThread);
             client.OnException += Client_OnException;
             client.OnConnected += Client_OnConnected;
-            client.Connect(NetSquareController.Instance.IPAdress, NetSquareController.Instance.Port, NetSquareController.Instance.ProtocoleType, NetSquareController.Instance.SynchronizeUsingUDP);
+            client.Connect(NetSquareController.Instance.IPAddress, NetSquareController.Instance.Port, NetSquareController.Instance.ProtocoleType, NetSquareController.Instance.SynchronizationTransport);
         }
 
         /// <summary>
@@ -54,6 +64,7 @@ namespace NetSquare.Client
         private void Client_OnConnected(uint clientID)
         {
             IsConnected = true;
+            client.SyncTime(NSClient.GetClientTime, 5, 1000);
             // connect to the world in main thread because it use a Unity transform
             ExecuteInMainThread((msg) =>
             {
@@ -69,8 +80,13 @@ namespace NetSquare.Client
         /// </summary>
         private void OnDestroy()
         {
-            client.Disconnect();
+            if (client == null)
+                return;
+
+            client.OnException -= Client_OnException;
             client.OnConnected -= Client_OnConnected;
+            if (client.IsConnected)
+                client.Disconnect();
         }
 
         /// <summary>
@@ -90,13 +106,10 @@ namespace NetSquare.Client
         public void BotUpdate()
         {
             // Execute the network messages
-            short i = 0;
-            while (netSquareActions.Count > 0 && i <= NbMaxMessagesByFrame)
+            int i = 0;
+            while (i < NbMaxMessagesByFrame && netSquareActions.TryDequeue(out currentAction))
             {
                 i++;
-                if (!netSquareActions.TryDequeue(out currentAction))
-                    continue;
-
                 currentAction.Action?.Invoke(currentAction.Message);
             }
 
@@ -128,7 +141,10 @@ namespace NetSquare.Client
             horizontal = 0;
             vertical = 0;
             Vector3 targetDir = targetPosition - PlayerController.transform.position;
-            targetDir.Normalize();
+            if (targetDir.sqrMagnitude > 0.0001f)
+                targetDir.Normalize();
+            else
+                targetDir = Vector3.zero;
             horizontal = targetDir.x;
             vertical = targetDir.z;
 

@@ -45,6 +45,7 @@ namespace NetSquare.Client
         public float TransformFramesStoreRate = 0.2f;
         public float TransformFramesStoreRateFast = 0.1f;
         public NetsquareTransformSender TransformSender;
+        private bool transformSenderInitialized;
         #endregion
 
         /// <summary>
@@ -67,11 +68,21 @@ namespace NetSquare.Client
         }
 
         /// <summary>
+        /// Cleanup NetSquare subscriptions.
+        /// </summary>
+        private void OnDestroy()
+        {
+            if (IsLocalPlayer)
+                NSClient.OnConnected -= NSClient_OnConnected;
+        }
+
+        /// <summary>
         /// OnConnected event
         /// </summary>
         /// <param name="clientID"> The client ID </param>
         private void NSClient_OnConnected(uint clientID)
         {
+            NSClient.OnConnected -= NSClient_OnConnected;
             InitializeTransformSender();
             // Join a world
             TransformSender.JoinWorld(NSClient.Client, 1, transform);
@@ -117,8 +128,24 @@ namespace NetSquare.Client
         /// </summary>
         public void InitializeTransformSender()
         {
+            ApplySettings();
             // Create a new transform sender
             TransformSender = new NetsquareTransformSender(NetworkSendRate, TransformFramesStoreRate, TransformFramesStoreRateFast);
+            transformSenderInitialized = true;
+        }
+
+        /// <summary>
+        /// Applies optional NetSquare settings from the controller.
+        /// </summary>
+        private void ApplySettings()
+        {
+            NetSquareSettings settings = NetSquareController.Instance != null ? NetSquareController.Instance.Settings : null;
+            if (settings == null)
+                return;
+
+            NetworkSendRate = settings.NetworkSendRate;
+            TransformFramesStoreRate = settings.TransformFramesStoreRate;
+            TransformFramesStoreRateFast = settings.TransformFramesStoreRateFast;
         }
 
         /// <summary>
@@ -158,7 +185,7 @@ namespace NetSquare.Client
             }
 
             // Check if the player is grounded
-            States.IsGrounded = Physics.CheckSphere(GroundCheck.position, GroundCheckRadius, GroundLayer);
+            States.IsGrounded = GroundCheck != null && Physics.CheckSphere(GroundCheck.position, GroundCheckRadius, GroundLayer);
 
             // Update the animator
             if (PlayerAnimator != null && IsLocalPlayer)
@@ -206,6 +233,7 @@ namespace NetSquare.Client
             // Move the player
             Vector3 move = new Vector3(horizontal, 0, vertical);
             States.IsWalking = move.magnitude > 0;
+            States.IsSprinting = sprint && States.IsWalking;
 
             // Apply acceleration
             if (States.IsWalking)
@@ -261,6 +289,9 @@ namespace NetSquare.Client
         /// </summary>
         public void Sync(NetSquareClient client)
         {
+            if (!transformSenderInitialized)
+                return;
+
             // Send the player state to the server
             TransformSender.Update(client, States, transform);
         }
@@ -291,7 +322,8 @@ namespace NetSquare.Client
                 return;
             }
             Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(GroundCheck.position, GroundCheckRadius);
+            if (GroundCheck != null)
+                Gizmos.DrawWireSphere(GroundCheck.position, GroundCheckRadius);
         }
 
         private void OnGUI()

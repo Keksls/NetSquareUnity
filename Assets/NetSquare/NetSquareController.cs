@@ -1,6 +1,4 @@
 using NetSquare.Core;
-using NetSquare.Core.Compression;
-using NetSquare.Core.Encryption;
 using System;
 using System.Collections.Concurrent;
 using UnityEngine;
@@ -15,17 +13,19 @@ namespace NetSquare.Client
         /// </summary>
         [Range(1, 4096)]
         [SerializeField]
-        private short nbMaxMessagesByFrame = 32;
+        private int nbMaxMessagesByFrame = 32;
+        [SerializeField]
+        private NetSquareSettings settings;
         public static NetSquareController Instance;
         private ConcurrentQueue<NetSquareActionData> netSquareActions = new ConcurrentQueue<NetSquareActionData>();
         private NetSquareActionData currentAction;
-        public string IPAdress = "127.0.0.1";
-        public int Port = 5555;
-        public NetSquareProtocoleType ProtocoleType;
-        public bool SynchronizeUsingUDP = false;
-        public NetSquareCompression MessagesCompression;
-        public NetSquareEncryption MessagesEncryption;
-        public bool DebugMode = true;
+        public NetSquareSettings Settings { get { return settings; } }
+        public string IPAddress { get { return settings != null ? settings.IPAddress : string.Empty; } }
+        public int Port { get { return settings != null ? settings.Port : 0; } }
+        public NetSquareProtocoleType ProtocoleType { get { return settings != null ? settings.ProtocoleType : NetSquareProtocoleType.TCP; } }
+        public NetSquareSyncTransport SynchronizationTransport { get { return settings != null ? settings.SynchronizationTransport : NetSquareSyncTransport.ReliableTcp; } }
+        public bool SynchronizeUsingUDP { get { return SynchronizationTransport == NetSquareSyncTransport.UnreliableUdp; } }
+        public bool DebugMode { get { return settings != null && settings.DebugMode; } }
         #endregion
 
         #region Unity Events
@@ -40,28 +40,40 @@ namespace NetSquare.Client
             if (Instance == null)
             {
                 Instance = this;
-                DontDestroyOnLoad(this);
+                DontDestroyOnLoad(gameObject);
+                NSClient.Initialize(this);
             }
             else
+            {
                 Destroy(gameObject);
+                return;
+            }
         }
 
         /// <summary>
         /// Connect to server when the game start
         /// </summary>
-        void Start()
+        private void Start()
         {
-            if (DebugMode)
+            if (settings == null)
+            {
+                Debug.LogError("NetSquareController requires a NetSquareSettings asset.");
+                enabled = false;
+                return;
+            }
+
+            if (settings.DebugMode)
             {
                 Debug.Log("Connecting");
                 NSClient.OnConnected += NSClient_OnConnected;
                 NSClient.OnConnectionFail += NSClient_OnConnectionFail;
             }
 
-            ProtocoleManager.SetCompressor(MessagesCompression);
-            ProtocoleManager.SetEncryptor(MessagesEncryption);
-            NSClient.Connect(IPAdress, Port, DebugMode, ProtocoleType, SynchronizeUsingUDP);
-            if (DebugMode)
+            ApplyRuntimeSettings();
+            ProtocoleManager.SetCompressor(settings.MessagesCompression);
+            ProtocoleManager.SetEncryptor(settings.MessagesEncryption);
+            NSClient.Connect(settings.IPAddress, settings.Port, settings.DebugMode, settings.ProtocoleType, settings.SynchronizationTransport == NetSquareSyncTransport.UnreliableUdp);
+            if (settings.DebugMode)
             {
                 Debug.Log(NSClient.Client.Dispatcher.GetRegisteredActionsString());
             }
@@ -76,14 +88,26 @@ namespace NetSquare.Client
             // Update time of the client
             NSClient.UpdateTime();
             // Execute messages actions from main thread
-            short i = 0;
-            while (netSquareActions.Count > 0 && i <= nbMaxMessagesByFrame)
+            int i = 0;
+            while (i < nbMaxMessagesByFrame && netSquareActions.TryDequeue(out currentAction))
             {
                 i++;
-                if (!netSquareActions.TryDequeue(out currentAction))
-                    continue;
-
                 currentAction.Action?.Invoke(currentAction.Message);
+            }
+        }
+        #endregion
+
+        #region Settings
+        /// <summary>
+        /// Applies runtime-only client settings.
+        /// </summary>
+        private void ApplyRuntimeSettings()
+        {
+            if (NSClient.Client != null)
+            {
+                NSClient.Client.SmoothServerTimeOffset = settings.SmoothServerTimeOffset;
+                NSClient.Client.ServerTimeOffsetSmoothingSpeed = settings.ServerTimeOffsetSmoothingSpeed;
+                NSClient.Client.WorldsManager.MaxStoredSynchFrames = settings.MaxStoredSynchFrames;
             }
         }
         #endregion
@@ -104,7 +128,24 @@ namespace NetSquare.Client
         /// </summary>
         public void OnApplicationQuit()
         {
-            NSClient.Client?.Disconnect();
+            NSClient.Shutdown();
+        }
+
+        /// <summary>
+        /// Cleanup controller subscriptions.
+        /// </summary>
+        private void OnDestroy()
+        {
+            if (Instance != this)
+                return;
+
+            if (settings != null && settings.DebugMode)
+            {
+                NSClient.OnConnected -= NSClient_OnConnected;
+                NSClient.OnConnectionFail -= NSClient_OnConnectionFail;
+            }
+
+            Instance = null;
         }
 
         #region Events Handlers

@@ -1,6 +1,4 @@
 using NetSquare.Core;
-using NetSquare.Client;
-using NetSquareCore;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -29,6 +27,10 @@ namespace NetSquare.Client
         private int maxInterpolationTimesCount = 10;
         [SerializeField]
         private float adaptativeInterpolationUpdateInterval = 0.2f;
+        [SerializeField]
+        private int maxBufferedTransformFrames = 64;
+        [SerializeField]
+        private int maxBufferedStateFrames = 64;
         private float lastAdaptativeInterpolationUpdateTime;
         private List<float> lastMaxInterpolationTimes;
         private bool transformFrameReceivedSinceLastAdaptativeInterpolationUpdate = false;
@@ -56,14 +58,22 @@ namespace NetSquare.Client
             if (Instance == null)
             {
                 Instance = this;
-                DontDestroyOnLoad(this);
+                DontDestroyOnLoad(gameObject);
             }
             else
+            {
                 Destroy(gameObject);
+                return;
+            }
 
             // register the events
             NSClient.OnConnected += NSClient_OnConnected;
             NSClient.OnDisconnected += NSClient_OnDisconnected;
+        }
+
+        private void Start()
+        {
+            ApplySettings();
         }
 
         private void OnDestroy()
@@ -71,6 +81,10 @@ namespace NetSquare.Client
             // unregister the events
             NSClient.OnConnected -= NSClient_OnConnected;
             NSClient.OnDisconnected -= NSClient_OnDisconnected;
+            UnregisterWorldEvents();
+
+            if (Instance == this)
+                Instance = null;
         }
 
         private void Update()
@@ -84,6 +98,22 @@ namespace NetSquare.Client
             }
         }
 
+        #region Settings
+        /// <summary>
+        /// Applies optional NetSquare settings from the controller.
+        /// </summary>
+        private void ApplySettings()
+        {
+            NetSquareSettings settings = NetSquareController.Instance != null ? NetSquareController.Instance.Settings : null;
+            if (settings == null)
+                return;
+
+            InterpolationTimeOffset = settings.InterpolationTimeOffset;
+            maxBufferedTransformFrames = settings.MaxBufferedTransformFrames;
+            maxBufferedStateFrames = settings.MaxBufferedStateFrames;
+        }
+        #endregion
+
         #region Events Registration
         /// <summary>
         /// Handle the connection of the client
@@ -91,9 +121,10 @@ namespace NetSquare.Client
         /// <param name="clientID"> The client ID </param>
         private void NSClient_OnConnected(uint clientID)
         {
+            UnregisterWorldEvents();
             NSClient.Client.WorldsManager.OnClientJoinWorld += WorldsManager_OnClientJoinWorld;
             NSClient.Client.WorldsManager.OnClientLeaveWorld += WorldsManager_OnClientLeaveWorld;
-            NSClient.Client.WorldsManager.OnClientMove += WorldsManager_OnClientMove;
+            NSClient.Client.WorldsManager.OnReceiveSynchFrames += WorldsManager_OnReceiveSynchFrames;
 
             if (monitorClientStatistics)
             {
@@ -119,28 +150,47 @@ namespace NetSquare.Client
         /// </summary>
         private void NSClient_OnDisconnected()
         {
-            NSClient.Client.WorldsManager.OnClientJoinWorld -= WorldsManager_OnClientJoinWorld;
-            NSClient.Client.WorldsManager.OnClientLeaveWorld -= WorldsManager_OnClientLeaveWorld;
-            NSClient.Client.WorldsManager.OnClientMove -= WorldsManager_OnClientMove;
+            UnregisterWorldEvents();
+        }
+
+        /// <summary>
+        /// Unregisters world manager and statistics events.
+        /// </summary>
+        private void UnregisterWorldEvents()
+        {
+            if (NSClient.Client != null)
+            {
+                NSClient.Client.WorldsManager.OnClientJoinWorld -= WorldsManager_OnClientJoinWorld;
+                NSClient.Client.WorldsManager.OnClientLeaveWorld -= WorldsManager_OnClientLeaveWorld;
+                NSClient.Client.WorldsManager.OnReceiveSynchFrames -= WorldsManager_OnReceiveSynchFrames;
+            }
+
+            if (clientStatisticsManager != null)
+            {
+                clientStatisticsManager.OnGetStatistics -= ClientStatisticsManager_OnGetStatistics;
+                clientStatisticsManager.Stop();
+                clientStatisticsManager = null;
+            }
         }
         #endregion
 
         #region Events Handlers
         /// <summary>
-        /// Handle the move of a client
+        /// Handle synchronized frames received for a client
         /// </summary>
         /// <param name="clientID"> The client ID </param>
-        /// <param name="transformsFrames"> The transform frames </param>
-        private void WorldsManager_OnClientMove(uint clientID, NetsquareTransformFrame[] transformsFrames)
+        /// <param name="synchFrames"> The received synchronization frames </param>
+        private void WorldsManager_OnReceiveSynchFrames(uint clientID, INetSquareSynchFrame[] synchFrames)
         {
             // prevent to add transform frames if the player doesn't exist
-            if (!players.ContainsKey(clientID))
+            NetworkPlayerTransformHandler player;
+            if (!players.TryGetValue(clientID, out player))
             {
                 return;
             }
 
             // add the transform frames to the player
-            players[clientID].AddTransformFrames(transformsFrames);
+            player.AddSynchFrames(synchFrames);
             transformFrameReceivedSinceLastAdaptativeInterpolationUpdate = true;
 
             // add the transform frames to the debug list
@@ -158,7 +208,11 @@ namespace NetSquare.Client
                 }
 
                 debugTransformFramesPackedIndex.Add(debugTransformFrames.Count);
-                debugTransformFrames.AddRange(transformsFrames);
+                foreach (INetSquareSynchFrame frame in synchFrames)
+                {
+                    if (frame is NetsquareTransformFrame transformFrame)
+                        debugTransformFrames.Add(transformFrame);
+                }
             }
         }
 
@@ -169,7 +223,8 @@ namespace NetSquare.Client
         private void WorldsManager_OnClientLeaveWorld(uint clientID)
         {
             // prevent to remove the player if it doesn't exist
-            if (!players.ContainsKey(clientID))
+            NetworkPlayerTransformHandler player;
+            if (!players.TryGetValue(clientID, out player))
             {
                 return;
             }
@@ -180,7 +235,7 @@ namespace NetSquare.Client
             }
             else
             {
-                Destroy(players[clientID].Player.gameObject);
+                Destroy(player.Player.gameObject);
             }
             players.Remove(clientID);
         }
@@ -194,7 +249,7 @@ namespace NetSquare.Client
         private void WorldsManager_OnClientJoinWorld(uint clientID, NetsquareTransformFrame transform, NetworkMessage message)
         {
             // prevent to create a player if it already exists or if it's the local player and we don't want to show it
-            if (players.ContainsKey(clientID) || !showLocalPlayer && clientID == NSClient.ClientID)
+            if (players.ContainsKey(clientID) || (!showLocalPlayer && clientID == NSClient.ClientID))
             {
                 return;
             }
@@ -206,8 +261,20 @@ namespace NetSquare.Client
             }
             else
             {
+                if (PlayerPrefab == null)
+                {
+                    Debug.LogError("The NetSquare player prefab is not set.");
+                    return;
+                }
+
                 player = Instantiate(PlayerPrefab);
             }
+            if (player == null)
+            {
+                Debug.LogError("The player join callback returned null.");
+                return;
+            }
+
             NetsquareOtherPlayerController netsquareOtherPlayerController = player.GetComponent<NetsquareOtherPlayerController>();
             if (netsquareOtherPlayerController == null)
             {
@@ -217,7 +284,11 @@ namespace NetSquare.Client
             }
             player.transform.position = new Vector3(transform.x, transform.y, transform.z);
             player.transform.rotation = new Quaternion(transform.rx, transform.ry, transform.rz, transform.rw);
-            players.Add(clientID, new NetworkPlayerTransformHandler(clientID, netsquareOtherPlayerController));
+            players.Add(clientID, new NetworkPlayerTransformHandler(clientID, netsquareOtherPlayerController)
+            {
+                MaxBufferedTransformFrames = maxBufferedTransformFrames,
+                MaxBufferedStateFrames = maxBufferedStateFrames
+            });
         }
         #endregion
 
@@ -253,10 +324,12 @@ namespace NetSquare.Client
             transformFrameReceivedSinceLastAdaptativeInterpolationUpdate = false;
             // get the max interpolation time on current players
             float currentMaxInterpolationTime = float.MinValue;
+            bool hasFrames = false;
             foreach (var player in players)
             {
                 if (player.Value.TransformFrames.Count > 0)
                 {
+                    hasFrames = true;
                     float mostRecentFrameTimeForClient = player.Value.TransformFrames[0].Time;
                     foreach (var frame in player.Value.TransformFrames)
                     {
@@ -272,6 +345,9 @@ namespace NetSquare.Client
                     }
                 }
             }
+            if (!hasFrames)
+                return;
+
             currentMaxInterpolationTime = NSClient.ServerTime - currentMaxInterpolationTime;
 
             // update the interpolation time offset
