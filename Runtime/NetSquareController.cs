@@ -1,6 +1,7 @@
 using NetSquare.Core;
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace NetSquare.Client
@@ -14,6 +15,8 @@ namespace NetSquare.Client
         #region Fields
         [SerializeField]
         private NetSquareSettings settings;
+        [SerializeField]
+        private bool autoConnect = true;
 
         private NetSquareUnityDispatchQueue dispatchQueue;
         private CancellationTokenSource lifetimeCancellation;
@@ -24,6 +27,7 @@ namespace NetSquare.Client
         #region Properties
         public static NetSquareController Instance { get; private set; }
         public NetSquareSettings Settings { get { return settings; } }
+        public bool AutoConnect { get { return autoConnect; } }
         public string IPAddress { get { return settings != null ? settings.Host : string.Empty; } }
         public int Port { get { return settings != null ? settings.Port : 0; } }
         public NetSquareProtocoleType ProtocoleType
@@ -93,25 +97,12 @@ namespace NetSquare.Client
         }
 
         /// <summary>
-        /// Starts the typed asynchronous connection attempt.
+        /// Starts the initial connection when automatic connection is enabled.
         /// </summary>
-        private async void Start()
+        private void Start()
         {
-            if (!enabled || lifetimeCancellation == null)
-                return;
-
-            try
-            {
-                await NSClient.ConnectAsync(settings, lifetimeCancellation.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                // Cancellation is expected while leaving Play Mode or destroying the controller.
-            }
-            catch (Exception exception)
-            {
-                Debug.LogException(exception);
-            }
+            if (enabled && autoConnect)
+                ConnectClient();
         }
 
         /// <summary>
@@ -172,6 +163,83 @@ namespace NetSquare.Client
 
             cancellation.Cancel();
             cancellation.Dispose();
+        }
+        #endregion
+
+        #region Connection
+        /// <summary>
+        /// Starts one non-blocking connection attempt when no attempt is already active.
+        /// </summary>
+        public void ConnectClient()
+        {
+            if (!enabled ||
+                settings == null ||
+                lifetimeCancellation == null ||
+                NSClient.IsConnected ||
+                NSClient.IsConnecting)
+            {
+                return;
+            }
+
+            _ = RunConnectionAttemptAsync();
+        }
+
+        /// <summary>
+        /// Connects the primary Client with controller-lifetime and caller cancellation.
+        /// </summary>
+        /// <param name="cancellationToken">Optional caller cancellation.</param>
+        /// <returns>Typed terminal connection result.</returns>
+        public async Task<ConnectionResult> ConnectClientAsync(
+            CancellationToken cancellationToken = default(CancellationToken))
+        {
+            CancellationTokenSource lifetime = lifetimeCancellation;
+            if (!enabled || settings == null || lifetime == null)
+            {
+                throw new InvalidOperationException(
+                    "NetSquareController is not initialized for connections.");
+            }
+
+            using (CancellationTokenSource linkedCancellation =
+                   CancellationTokenSource.CreateLinkedTokenSource(
+                       lifetime.Token,
+                       cancellationToken))
+            {
+                return await NSClient.ConnectAsync(
+                    settings,
+                    linkedCancellation.Token);
+            }
+        }
+
+        /// <summary>
+        /// Cancels the active connection attempt without disconnecting an established Client.
+        /// </summary>
+        public void CancelConnectionAttempt()
+        {
+            NSClient.CancelConnectionAttempt();
+        }
+
+        /// <summary>
+        /// Observes one fire-and-forget controller connection attempt.
+        /// </summary>
+        private async Task RunConnectionAttemptAsync()
+        {
+            try
+            {
+                ConnectionResult result = await ConnectClientAsync();
+                if (DebugMode)
+                {
+                    Debug.Log(
+                        "[NetSquare] Connection attempt completed: " + result.Status + ".");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Cancellation is expected while leaving Play Mode or cancelling a retry.
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
         }
         #endregion
 

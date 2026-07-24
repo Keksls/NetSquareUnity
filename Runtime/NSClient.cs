@@ -14,14 +14,18 @@ namespace NetSquare.Client
     public static class NSClient
     {
         #region Fields
+        private static readonly object connectionStateLock = new object();
         private static Stopwatch clientClock = Stopwatch.StartNew();
         private static NetSquareController owner;
         private static bool clientEventsRegistered;
         private static int connectionAttemptActive;
+        private static int connectionAttemptSequence;
+        private static CancellationTokenSource connectionCancellation;
         #endregion
 
         #region Properties
         public static bool IsConnected { get; private set; }
+        public static bool IsConnecting { get { return Volatile.Read(ref connectionAttemptActive) != 0; } }
         public static uint ClientID { get; private set; }
         public static NetSquareClient Client { get; private set; }
         public static float ClientTime { get; private set; }
@@ -41,9 +45,14 @@ namespace NetSquare.Client
 
         #region Events
         public static event Action<uint> OnConnected;
+        public static event Action<ConnectionRejectionInfo> OnConnectionRejected;
+        public static event Action<ConnectionResult> OnConnectionAttemptCompleted;
+        public static event Action<Exception> OnConnectionAttemptException;
         public static event Action<DisconnectInfo> OnDisconnected;
         public static event Action<ConnectionResult> OnConnectionFailed;
         public static event Action<Exception> OnException;
+        public static event Action BeforeConnectClient;
+        public static event Action AfterConnectClient;
         #endregion
 
         #region Unity lifecycle
@@ -61,9 +70,14 @@ namespace NetSquare.Client
             ClientTime = 0f;
             TLSCertificateValidationCallback = null;
             OnConnected = null;
+            OnConnectionRejected = null;
+            OnConnectionAttemptCompleted = null;
+            OnConnectionAttemptException = null;
             OnDisconnected = null;
             OnConnectionFailed = null;
             OnException = null;
+            BeforeConnectClient = null;
+            AfterConnectClient = null;
         }
 
         /// <summary>
@@ -148,6 +162,25 @@ namespace NetSquare.Client
         /// </summary>
         private static void ResetConnectionState()
         {
+            CancellationTokenSource cancellation;
+            lock (connectionStateLock)
+            {
+                cancellation = connectionCancellation;
+                connectionCancellation = null;
+            }
+
+            if (cancellation != null)
+            {
+                try
+                {
+                    cancellation.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // The attempt already released its owned cancellation source.
+                }
+            }
+
             IsConnected = false;
             ClientID = 0;
             Volatile.Write(ref connectionAttemptActive, 0);
@@ -167,29 +200,78 @@ namespace NetSquare.Client
         {
             if (settings == null)
                 throw new ArgumentNullException(nameof(settings));
-            if (Client == null || owner == null)
-                throw new InvalidOperationException("NSClient.Initialize must be called before connecting.");
-            if (Interlocked.CompareExchange(ref connectionAttemptActive, 1, 0) != 0)
-                return await Client.ConnectAsync(cancellationToken);
 
+            NetSquareClient client = Client;
+            if (client == null || owner == null)
+                throw new InvalidOperationException("NSClient.Initialize must be called before connecting.");
+            int attemptID = Interlocked.Increment(ref connectionAttemptSequence);
+            if (attemptID == 0)
+                attemptID = Interlocked.Increment(ref connectionAttemptSequence);
+            if (Interlocked.CompareExchange(ref connectionAttemptActive, attemptID, 0) != 0)
+                return await client.ConnectAsync(cancellationToken).ConfigureAwait(false);
+
+            CancellationTokenSource ownedCancellation =
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            lock (connectionStateLock)
+                connectionCancellation = ownedCancellation;
+
+            ExecuteOnMainThread(() => BeforeConnectClient?.Invoke());
             try
             {
                 settings.Validate();
-                if (!Client.IsConnected)
-                    Client.ApplyConfiguration(settings.CreateClientConfiguration());
-                Client.TLSCertificateValidationCallback = TLSCertificateValidationCallback;
+                if (!client.IsConnected)
+                    client.ApplyConfiguration(settings.CreateClientConfiguration());
+                client.TLSCertificateValidationCallback = TLSCertificateValidationCallback;
 
-                ConnectionResult result = await Client
-                    .ConnectAsync(cancellationToken)
-                    .ConfigureAwait(false);
-                if (!result.IsConnected)
-                    DispatchConnectionFailure(result);
+                Task<ConnectionResult> connectionTask =
+                    client.ConnectAsync(ownedCancellation.Token);
+                ExecuteOnMainThread(() => AfterConnectClient?.Invoke());
+
+                ConnectionResult result = await connectionTask.ConfigureAwait(false);
+                DispatchConnectionResult(result);
                 return result;
+            }
+            catch (Exception exception)
+            {
+                ExecuteOnMainThread(
+                    () => OnConnectionAttemptException?.Invoke(exception));
+                throw;
             }
             finally
             {
-                Volatile.Write(ref connectionAttemptActive, 0);
+                lock (connectionStateLock)
+                {
+                    if (ReferenceEquals(connectionCancellation, ownedCancellation))
+                        connectionCancellation = null;
+                }
+
+                ownedCancellation.Dispose();
+                Interlocked.CompareExchange(ref connectionAttemptActive, 0, attemptID);
             }
+        }
+
+        /// <summary>
+        /// Cancels the active connection attempt without disconnecting an established Client.
+        /// </summary>
+        public static void CancelConnectionAttempt()
+        {
+            CancellationTokenSource cancellation;
+            lock (connectionStateLock)
+                cancellation = connectionCancellation;
+
+            if (cancellation != null)
+            {
+                try
+                {
+                    cancellation.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // The attempt completed between capture and cancellation.
+                }
+            }
+
+            Client?.CancelConnectionAttempt();
         }
 
         /// <summary>
@@ -197,16 +279,30 @@ namespace NetSquare.Client
         /// </summary>
         public static void Disconnect()
         {
+            CancelConnectionAttempt();
             Client?.Disconnect();
         }
 
         /// <summary>
-        /// Dispatches a typed failed connection result to the Unity main thread.
+        /// Dispatches one terminal connection result to the Unity main thread.
         /// </summary>
-        /// <param name="result">Failed connection result.</param>
-        private static void DispatchConnectionFailure(ConnectionResult result)
+        /// <param name="result">Terminal connection result.</param>
+        private static void DispatchConnectionResult(ConnectionResult result)
         {
-            ExecuteOnMainThread(() => OnConnectionFailed?.Invoke(result));
+            ExecuteOnMainThread(() =>
+            {
+                if (result != null && result.IsRejected)
+                    OnConnectionRejected?.Invoke(result.RejectionInfo);
+                if (result != null &&
+                    !result.IsConnected &&
+                    result.Status != ConnectionResultStatus.Cancelled &&
+                    result.Status != ConnectionResultStatus.ConnectionInProgress)
+                {
+                    OnConnectionFailed?.Invoke(result);
+                }
+
+                OnConnectionAttemptCompleted?.Invoke(result);
+            });
         }
         #endregion
 
@@ -363,6 +459,18 @@ namespace NetSquare.Client
         }
 
         /// <summary>
+        /// Sends one reliable enum route through TCP.
+        /// </summary>
+        /// <param name="headID">Enum route identifier.</param>
+        public static void SendMessage(Enum headID)
+        {
+            if (headID == null)
+                throw new ArgumentNullException(nameof(headID));
+            if (CanSend())
+                Client.SendMessage(headID);
+        }
+
+        /// <summary>
         /// Sends one reliable message and registers a reply callback.
         /// </summary>
         /// <param name="message">Message to send.</param>
@@ -371,6 +479,34 @@ namespace NetSquare.Client
         {
             if (CanSend())
                 Client.SendMessage(message, callback);
+        }
+
+        /// <summary>
+        /// Sends one reliable route and registers a reply callback.
+        /// </summary>
+        /// <param name="headID">Route identifier.</param>
+        /// <param name="callback">Reply callback.</param>
+        public static void SendMessage(ushort headID, NetSquareAction callback)
+        {
+            if (callback == null)
+                throw new ArgumentNullException(nameof(callback));
+            if (CanSend())
+                Client.SendMessage(headID, callback);
+        }
+
+        /// <summary>
+        /// Sends one reliable enum route and registers a reply callback.
+        /// </summary>
+        /// <param name="headID">Enum route identifier.</param>
+        /// <param name="callback">Reply callback.</param>
+        public static void SendMessage(Enum headID, NetSquareAction callback)
+        {
+            if (headID == null)
+                throw new ArgumentNullException(nameof(headID));
+            if (callback == null)
+                throw new ArgumentNullException(nameof(callback));
+            if (CanSend())
+                Client.SendMessage(headID, callback);
         }
 
         /// <summary>
@@ -390,6 +526,90 @@ namespace NetSquare.Client
         private static bool CanSend()
         {
             return Client != null && IsConnected && Client.IsConnected;
+        }
+        #endregion
+
+        #region Dispatcher
+        /// <summary>
+        /// Registers one route callback using its method name for diagnostics.
+        /// </summary>
+        /// <param name="headID">Route identifier.</param>
+        /// <param name="callback">Route callback.</param>
+        public static void AddAction(ushort headID, NetSquareAction callback)
+        {
+            if (callback == null)
+                throw new ArgumentNullException(nameof(callback));
+
+            AddAction(headID, callback.Method.Name, callback);
+        }
+
+        /// <summary>
+        /// Registers one enum route callback using its method name for diagnostics.
+        /// </summary>
+        /// <param name="headID">Enum route identifier.</param>
+        /// <param name="callback">Route callback.</param>
+        public static void AddAction(Enum headID, NetSquareAction callback)
+        {
+            if (headID == null)
+                throw new ArgumentNullException(nameof(headID));
+            if (callback == null)
+                throw new ArgumentNullException(nameof(callback));
+
+            AddAction(headID, callback.Method.Name, callback);
+        }
+
+        /// <summary>
+        /// Registers one named route callback on the primary Client dispatcher.
+        /// </summary>
+        /// <param name="headID">Route identifier.</param>
+        /// <param name="actionName">Diagnostic action name.</param>
+        /// <param name="action">Route callback.</param>
+        public static void AddAction(
+            ushort headID,
+            string actionName,
+            NetSquareAction action)
+        {
+            NetSquareClient client = RequireInitializedClient();
+            if (action == null)
+                throw new ArgumentNullException(nameof(action));
+
+            client.Dispatcher.AddHeadAction(headID, actionName, action);
+        }
+
+        /// <summary>
+        /// Registers one named enum route callback on the primary Client dispatcher.
+        /// </summary>
+        /// <param name="headID">Enum route identifier.</param>
+        /// <param name="actionName">Diagnostic action name.</param>
+        /// <param name="action">Route callback.</param>
+        public static void AddAction(
+            Enum headID,
+            string actionName,
+            NetSquareAction action)
+        {
+            NetSquareClient client = RequireInitializedClient();
+            if (headID == null)
+                throw new ArgumentNullException(nameof(headID));
+            if (action == null)
+                throw new ArgumentNullException(nameof(action));
+
+            client.Dispatcher.AddHeadAction(headID, actionName, action);
+        }
+
+        /// <summary>
+        /// Returns the initialized primary Client or reports invalid lifecycle ordering.
+        /// </summary>
+        /// <returns>Initialized primary Client.</returns>
+        private static NetSquareClient RequireInitializedClient()
+        {
+            NetSquareClient client = Client;
+            if (client == null)
+            {
+                throw new InvalidOperationException(
+                    "NSClient.Initialize must be called before registering actions.");
+            }
+
+            return client;
         }
         #endregion
     }

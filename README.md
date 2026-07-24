@@ -40,3 +40,7 @@ per-frame processing budget in `NetSquareSettings` from measured workloads.
 
 Automatic time synchronization is enabled by default and refreshes the offset every 30 seconds.
 Increase that interval for very large bot tests if time-sync traffic must be minimized.
+
+The Unity facade exposes typed connection-attempt events, explicit retry and cancellation, route
+registration helpers, and both `ushort` and `Enum` message overloads. `NSClient` remains in the
+`NetSquare.Client` namespace.

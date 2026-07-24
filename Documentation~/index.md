@@ -17,3 +17,7 @@ details.
 
 Automatic time synchronization refreshes the Server offset during long sessions. Its precision,
 sample spacing and refresh interval are configured in `NetSquareSettings`.
+
+Use `NetSquareController.ConnectClient` for a non-blocking retry,
+`ConnectClientAsync` when the typed result is needed, and `CancelConnectionAttempt` to stop
+only the pending attempt. `NSClient.OnConnectionAttemptCompleted` reports every terminal result.

@@ -1,4 +1,6 @@
+using NetSquare.Core;
 using NUnit.Framework;
+using System;
 
 namespace NetSquare.Client.Editor.Tests
 {
@@ -24,6 +26,40 @@ namespace NetSquare.Client.Editor.Tests
             Assert.That(
                 coreVersion,
                 Is.EqualTo(NetSquarePackageInfo.RequiredAssemblyVersion));
+        }
+
+        /// <summary>
+        /// Confirms the stable Unity connection and dispatcher facade remains available.
+        /// </summary>
+        [Test]
+        public void UnityFacadeExposesConnectionAndDispatcherSurface()
+        {
+            Assert.That(
+                typeof(NSClient).GetProperty(nameof(NSClient.IsConnecting)),
+                Is.Not.Null);
+            Assert.That(
+                typeof(NSClient).GetEvent(nameof(NSClient.OnConnectionAttemptCompleted)),
+                Is.Not.Null);
+            Assert.That(
+                typeof(NSClient).GetMethod(
+                    nameof(NSClient.CancelConnectionAttempt),
+                    Type.EmptyTypes),
+                Is.Not.Null);
+            Assert.That(
+                typeof(NSClient).GetMethod(
+                    nameof(NSClient.AddAction),
+                    new[] { typeof(Enum), typeof(NetSquareAction) }),
+                Is.Not.Null);
+            Assert.That(
+                typeof(NSClient).GetMethod(
+                    nameof(NSClient.SendMessage),
+                    new[] { typeof(Enum), typeof(NetSquareAction) }),
+                Is.Not.Null);
+            Assert.That(
+                typeof(NetSquareController).GetMethod(
+                    nameof(NetSquareController.ConnectClient),
+                    Type.EmptyTypes),
+                Is.Not.Null);
         }
     }
 }
