@@ -1,0 +1,29 @@
+{
+  "name": "com.vrdtmstudio.netsquare",
+  "version": "1.0.15",
+  "displayName": "NetSquare",
+  "description": "Unity integration for the NetSquare TCP, TLS and authenticated UDP networking client.",
+  "unity": "2021.3",
+  "author": {
+    "name": "VRDTMStudio",
+    "url": "https://github.com/Keksls/NetSquare"
+  },
+  "license": "MIT",
+  "documentationUrl": "https://github.com/Keksls/NetSquare",
+  "changelogUrl": "https://github.com/Keksls/NetSquare",
+  "licensesUrl": "https://github.com/Keksls/NetSquare/blob/main/LICENSE",
+  "keywords": [
+    "networking",
+    "tcp",
+    "udp",
+    "tls",
+    "multiplayer"
+  ],
+  "samples": [
+    {
+      "displayName": "Transform Synchronization",
+      "description": "A complete scene demonstrating world joins, bounded transform buffering, interpolation and optional load-test bots.",
+      "path": "Samples~/Transform Synchronization"
+    }
+  ]
+}

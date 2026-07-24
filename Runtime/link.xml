@@ -1,0 +1,4 @@
+<linker>
+  <assembly fullname="NetSquareCore" preserve="all" />
+  <assembly fullname="NetSquareClient" preserve="all" />
+</linker>

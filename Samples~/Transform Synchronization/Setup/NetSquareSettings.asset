@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0bab9d551ed0f7b4faf729667106f326, type: 3}
+  m_Name: NetSquareSettings
+  m_EditorClassIdentifier: NetSquare::NetSquare.Client.NetSquareSettings
+  Host: 127.0.0.1
+  Port: 5555
+  ProtocoleType: 1
+  ConnectionTimeoutMilliseconds: 10000
+  UseTLS: 0
+  TLSServerName:
+  UseUdpAuthentication: 0
+  HeartbeatEnabled: 1
+  HeartbeatIntervalMilliseconds: 10000
+  HeartbeatTimeoutMilliseconds: 30000
+  MaxQueuedInboundMessages: 8192
+  MessageWorkerStopTimeoutMilliseconds: 5000
+  MaxMainThreadQueuedCallbacks: 4096
+  MaxMainThreadCallbacksPerFrame: 256
+  MainThreadOverflowPolicy: 0
+  SmoothServerTimeOffset: 1
+  ServerTimeOffsetSmoothingSpeed: 8
+  TimeSynchronizationRequestTimeoutMilliseconds: 1500
+  TimeSynchronizationMaxAttempts: 0
+  TimeSynchronizationPrecision: 5
+  TimeBetweenSynchronizationsMilliseconds: 1000
+  AutomaticTimeSynchronization: 1
+  AutomaticTimeSynchronizationIntervalMilliseconds: 30000
+  SynchronizationTransport: 1
+  MaxStoredSynchronizationFrames: 256
+  AutoSendSynchronizationFrames: 1
+  MaxBufferedTransformFrames: 64
+  MaxBufferedStateFrames: 64
+  InterpolationTimeOffset: 0.15
+  NetworkSendRate: 0.05
+  TransformFramesStoreRate: 0.05
+  TransformFramesStoreRateFast: 0.025
+  DebugMode: 0
+  AutoBindAttributedActions: 0
