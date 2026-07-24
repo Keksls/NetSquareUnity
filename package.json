@@ -1,11 +1,11 @@
 {
-  "name": "com.vrdtmstudio.netsquare",
+  "name": "com.keksls.netsquare",
   "version": "1.0.15",
   "displayName": "NetSquare",
   "description": "Unity integration for the NetSquare TCP, TLS and authenticated UDP networking client.",
   "unity": "2021.3",
   "author": {
-    "name": "VRDTMStudio",
+    "name": "Keksls",
     "url": "https://github.com/Keksls/NetSquare"
   },
   "license": "MIT",

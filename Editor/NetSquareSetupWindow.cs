@@ -6,7 +6,6 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
-using UnityEditor.PackageManager;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -200,7 +199,8 @@ namespace NetSquare.Client.Editor
         /// </summary>
         private void ValidateAssemblies()
         {
-            PackageInfo packageInfo = PackageInfo.FindForAssembly(typeof(NSClient).Assembly);
+            UnityEditor.PackageManager.PackageInfo packageInfo =
+                UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(NSClient).Assembly);
             if (packageInfo == null)
             {
                 validationErrors.Add("Unity could not resolve the NetSquare package.");
