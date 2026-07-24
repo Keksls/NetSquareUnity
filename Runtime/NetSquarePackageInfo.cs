@@ -6,7 +6,7 @@ namespace NetSquare.Client
     public static class NetSquarePackageInfo
     {
         public const string PackageId = "com.keksls.netsquare";
-        public const string PackageVersion = "1.0.15";
-        public const string RequiredAssemblyVersion = "1.0.15.0";
+        public const string PackageVersion = "1.0.16";
+        public const string RequiredAssemblyVersion = "1.0.16.0";
     }
 }

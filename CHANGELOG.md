@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.16] - 2026-07-24
+
+- Updated the embedded obfuscated NetSquare Client/Core assemblies to 1.0.16.
+- Added compatibility with NetSquare message wire protocol version 3.
+- Removed the embedded legacy application-encryption and compressor-selection APIs.
+- Added support for conditional per-message Deflate compression.
+- Kept TLS and authenticated UDP behavior unchanged.
+
 ## [1.0.15] - 2026-07-24
 
 - Converted the repository into a Unity Package Manager package.
