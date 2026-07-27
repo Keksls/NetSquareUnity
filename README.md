@@ -1,6 +1,6 @@
 # NetSquare for Unity
 
-NetSquare for Unity is a Unity Package Manager integration for `NetSquare.Client` 1.0.16.
+NetSquare for Unity is a Unity Package Manager integration for `NetSquare.Client` 1.0.17.
 
 ## Installation
 
@@ -18,7 +18,7 @@ can be imported from the package Samples section.
 4. Select **Setup Current Scene**.
 5. Use **Test NetSquare Handshake** to validate the complete protocol, not only TCP reachability.
 
-NetSquare 1.0.16 requires the Client, Core and Server packages to use the exact same release
+NetSquare 1.0.17 requires the Client, Core and Server packages to use the exact same release
 version.
 
 ## Security
@@ -37,6 +37,12 @@ TCP.
 The Unity dispatcher is bounded. Its default overflow policy disconnects the Client instead of
 silently losing reliable callbacks or allowing unbounded memory growth. Tune queue limits and the
 per-frame processing budget in `NetSquareSettings` from measured workloads.
+
+The Server owns the heartbeat policy and sends it during the handshake. Unity clients apply that
+policy automatically, so heartbeat timing is configured only on the Server.
+
+Pending reply callbacks are bounded and expire automatically. Tune their capacity and timeout in
+`NetSquareSettings` when an application has unusually high request concurrency or long replies.
 
 Automatic time synchronization is enabled by default and refreshes the offset every 30 seconds.
 Increase that interval for very large bot tests if time-sync traffic must be minimized.

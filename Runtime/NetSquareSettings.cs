@@ -28,13 +28,12 @@ namespace NetSquare.Client
         public bool UseUdpAuthentication;
         #endregion
 
-        #region Heartbeat
-        [Header("Heartbeat")]
-        public bool HeartbeatEnabled = true;
+        #region Reply callbacks
+        [Header("Reply callbacks")]
         [Min(1)]
-        public int HeartbeatIntervalMilliseconds = 10000;
+        public int MaxPendingReplyCallbacks = 4096;
         [Min(1)]
-        public int HeartbeatTimeoutMilliseconds = 30000;
+        public int ReplyCallbackTimeoutMilliseconds = 30000;
         #endregion
 
         #region Queues
@@ -116,11 +115,10 @@ namespace NetSquare.Client
                 UseTLS = UseTLS,
                 TLSServerName = TLSServerName ?? string.Empty,
                 UseUdpAuthentication = UseUdpAuthentication,
-                HeartbeatEnabled = HeartbeatEnabled,
-                HeartbeatIntervalMilliseconds = HeartbeatIntervalMilliseconds,
-                HeartbeatTimeoutMilliseconds = HeartbeatTimeoutMilliseconds,
                 MaxQueuedInboundMessages = MaxQueuedInboundMessages,
                 MessageWorkerStopTimeoutMilliseconds = MessageWorkerStopTimeoutMilliseconds,
+                MaxPendingReplyCallbacks = MaxPendingReplyCallbacks,
+                ReplyCallbackTimeoutMilliseconds = ReplyCallbackTimeoutMilliseconds,
                 SmoothServerTimeOffset = SmoothServerTimeOffset,
                 ServerTimeOffsetSmoothingSpeed = ServerTimeOffsetSmoothingSpeed,
                 TimeSynchronizationRequestTimeoutMilliseconds =

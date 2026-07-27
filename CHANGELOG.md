@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.17] - 2026-07-27
+
+- Updated the embedded obfuscated NetSquare Client/Core assemblies to 1.0.17.
+- Added compatibility with NetSquare message wire protocol version 4.
+- Moved heartbeat timing to the Server-owned policy delivered during the handshake.
+- Replaced Unity heartbeat settings with bounded, expiring reply-callback controls.
+- Kept TLS, authenticated UDP and synchronization behavior unchanged.
+
 ## [1.0.16] - 2026-07-24
 
 - Updated the embedded obfuscated NetSquare Client/Core assemblies to 1.0.16.

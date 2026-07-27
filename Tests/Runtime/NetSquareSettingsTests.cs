@@ -5,7 +5,7 @@ using UnityEngine;
 namespace NetSquare.Client.Tests
 {
     /// <summary>
-    /// Verifies Unity settings conversion into NetSquare 1.0.16 configuration.
+    /// Verifies Unity settings conversion into NetSquare 1.0.17 configuration.
     /// </summary>
     public sealed class NetSquareSettingsTests
     {
@@ -24,6 +24,8 @@ namespace NetSquare.Client.Tests
                 settings.TLSServerName = "game.example.com";
                 settings.UseUdpAuthentication = true;
                 settings.MaxQueuedInboundMessages = 1234;
+                settings.MaxPendingReplyCallbacks = 4321;
+                settings.ReplyCallbackTimeoutMilliseconds = 15000;
                 settings.SynchronizationTransport = NetSquareSyncTransport.UnreliableUdp;
 
                 NetSquareClientConfiguration first = settings.CreateClientConfiguration();
@@ -35,6 +37,8 @@ namespace NetSquare.Client.Tests
                 Assert.That(first.UseTLS, Is.True);
                 Assert.That(first.UseUdpAuthentication, Is.True);
                 Assert.That(first.MaxQueuedInboundMessages, Is.EqualTo(1234));
+                Assert.That(first.MaxPendingReplyCallbacks, Is.EqualTo(4321));
+                Assert.That(first.ReplyCallbackTimeoutMilliseconds, Is.EqualTo(15000));
             }
             finally
             {

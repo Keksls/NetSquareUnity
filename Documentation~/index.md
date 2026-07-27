@@ -15,6 +15,10 @@ TLS, UDP authentication, protocol and synchronization transport settings must ma
 The Editor setup window performs a complete NetSquare handshake and reports typed rejection
 details.
 
+The Server owns heartbeat timing and sends its policy during the handshake. Unity clients apply it
+automatically. `NetSquareSettings` exposes bounded pending-reply capacity and timeout controls to
+prevent abandoned requests from growing without limit.
+
 Automatic time synchronization refreshes the Server offset during long sessions. Its precision,
 sample spacing and refresh interval are configured in `NetSquareSettings`.
 
