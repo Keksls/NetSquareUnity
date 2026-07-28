@@ -1,6 +1,6 @@
 # NetSquare for Unity
 
-NetSquare for Unity is a Unity Package Manager integration for `NetSquare.Client` 1.0.17.
+NetSquare for Unity is a Unity Package Manager integration for `NetSquare.Client` 1.0.18.
 
 ## Installation
 
@@ -18,8 +18,14 @@ can be imported from the package Samples section.
 4. Select **Setup Current Scene**.
 5. Use **Test NetSquare Handshake** to validate the complete protocol, not only TCP reachability.
 
-NetSquare 1.0.17 requires the Client, Core and Server packages to use the exact same release
+NetSquare 1.0.18 requires the Client, Core and Server packages to use the exact same release
 version.
+
+## World lifecycle
+
+When the Server removes the active world, the embedded Client clears its local membership and
+pending synchronization frames before raising `WorldsManager.OnWorldRemoved`. The transform
+sample also releases every remote Player and stops producing frames until it joins another world.
 
 ## Security
 

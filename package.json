@@ -1,6 +1,6 @@
 {
   "name": "com.keksls.netsquare",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "displayName": "NetSquare",
   "description": "Unity integration for the NetSquare TCP, TLS and authenticated UDP networking client.",
   "unity": "2021.3",

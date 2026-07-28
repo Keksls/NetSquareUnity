@@ -5,7 +5,7 @@ using UnityEngine;
 namespace NetSquare.Client.Tests
 {
     /// <summary>
-    /// Verifies Unity settings conversion into NetSquare 1.0.17 configuration.
+    /// Verifies Unity settings conversion into NetSquare 1.0.18 configuration.
     /// </summary>
     public sealed class NetSquareSettingsTests
     {

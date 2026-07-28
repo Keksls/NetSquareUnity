@@ -99,6 +99,7 @@ namespace NetSquare.Client
             if (client == null ||
                 !client.IsConnected ||
                 !client.IsTimeSynchronized ||
+                !client.WorldsManager.IsInWorld ||
                 states == null ||
                 playerTransform == null)
             {

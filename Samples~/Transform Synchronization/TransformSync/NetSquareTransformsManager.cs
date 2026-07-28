@@ -192,6 +192,7 @@ namespace NetSquare.Client
             UnregisterWorldEvents();
             client.WorldsManager.OnClientJoinWorld += WorldsManager_OnClientJoinWorld;
             client.WorldsManager.OnClientLeaveWorld += WorldsManager_OnClientLeaveWorld;
+            client.WorldsManager.OnWorldRemoved += WorldsManager_OnWorldRemoved;
             client.WorldsManager.OnReceiveSynchFrames += WorldsManager_OnReceiveSynchFrames;
         }
 
@@ -206,6 +207,7 @@ namespace NetSquare.Client
 
             client.WorldsManager.OnClientJoinWorld -= WorldsManager_OnClientJoinWorld;
             client.WorldsManager.OnClientLeaveWorld -= WorldsManager_OnClientLeaveWorld;
+            client.WorldsManager.OnWorldRemoved -= WorldsManager_OnWorldRemoved;
             client.WorldsManager.OnReceiveSynchFrames -= WorldsManager_OnReceiveSynchFrames;
         }
         #endregion
@@ -225,6 +227,16 @@ namespace NetSquare.Client
 
             player.AddSynchFrames(frames);
             frameReceivedSinceAdaptiveUpdate = true;
+        }
+
+        /// <summary>
+        /// Releases every visible Player after the Server removes the active world.
+        /// </summary>
+        /// <param name="worldID">Removed world identifier.</param>
+        private void WorldsManager_OnWorldRemoved(ushort worldID)
+        {
+            // Remote Player objects belong to the expired world and must not survive its replacement.
+            ClearPlayers();
         }
 
         /// <summary>

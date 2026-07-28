@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.18] - 2026-07-28
+
+- Updated the embedded obfuscated NetSquare Client/Core assemblies to 1.0.18.
+- Added automatic local membership cleanup and `OnWorldRemoved` notification after Server world expiration.
+- Updated the transform sample to release remote Players and pause frame production outside a world.
+- Kept message wire protocol version 4, heartbeat, TLS and authenticated UDP behavior unchanged.
+
 ## [1.0.17] - 2026-07-27
 
 - Updated the embedded obfuscated NetSquare Client/Core assemblies to 1.0.17.

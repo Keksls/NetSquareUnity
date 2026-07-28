@@ -19,6 +19,10 @@ The Server owns heartbeat timing and sends its policy during the handshake. Unit
 automatically. `NetSquareSettings` exposes bounded pending-reply capacity and timeout controls to
 prevent abandoned requests from growing without limit.
 
+World expiration is delivered through `WorldsManager.OnWorldRemoved`. Membership and pending
+synchronization frames are cleared before the callback runs. The transform sample releases its
+remote Player objects and pauses frame production until the Client joins another world.
+
 Automatic time synchronization refreshes the Server offset during long sessions. Its precision,
 sample spacing and refresh interval are configured in `NetSquareSettings`.
 
